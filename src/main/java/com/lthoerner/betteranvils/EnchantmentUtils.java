@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class EnchantmentUtils {
+    // Combines all the enchantments of an item, both standard and stored, into a single map
     public static Map<Enchantment, Integer> getAllEnchantments(ItemStack item) {
         if (item == null) {
             return null;
@@ -30,6 +31,7 @@ public class EnchantmentUtils {
         return allEnchantments;
     }
 
+    // Removes all the enchantments of an item, both standard and stored
     public static ItemStack stripEnchantments(ItemStack item) {
         if (item == null) {
             return null;
@@ -49,6 +51,7 @@ public class EnchantmentUtils {
         return item;
     }
 
+    // If the given item is an enchanted book, converts its standard enchantments into stored enchantments
     public static void storeEnchantsInBook(ItemStack item) {
         // Stored enchantments are only relevant for enchanted books
         if (item == null || item.getType() != Material.ENCHANTED_BOOK) {
@@ -77,6 +80,7 @@ public class EnchantmentUtils {
         item.setItemMeta(enchantmentMeta);
     }
 
+    // Calculates the cost of combining two items in an anvil
     public static int calculateAnvilCost(ItemStack resultItem) {
         Map<Enchantment, Integer> enchantments = getAllEnchantments(resultItem);
 
