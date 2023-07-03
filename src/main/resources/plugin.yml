@@ -1,0 +1,4 @@
+name: BetterAnvils
+version: '${project.version}'
+main: com.lthoerner.betteranvils.BetterAnvils
+api-version: '1.20'
