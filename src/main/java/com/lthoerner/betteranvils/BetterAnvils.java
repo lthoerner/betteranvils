@@ -1,7 +1,5 @@
 package com.lthoerner.betteranvils;
 
-import org.bukkit.Material;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
@@ -9,11 +7,6 @@ import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.ArrayList;
-import java.util.Map;
-
-import static com.lthoerner.betteranvils.EnchantmentUtils.*;
 
 public final class BetterAnvils extends JavaPlugin implements Listener {
 
