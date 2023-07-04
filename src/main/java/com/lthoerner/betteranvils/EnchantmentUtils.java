@@ -24,12 +24,14 @@ class AnvilResult {
 class AnvilAction {
     public final ItemStack leftItem;
     public final ItemStack rightItem;
+    public final String renameText;
     public final ArrayList<AnvilActionOption> options;
 
-    public AnvilAction(ItemStack leftItem, ItemStack rightItem) {
+    public AnvilAction(ItemStack leftItem, ItemStack rightItem, String renameText) {
         this.leftItem = leftItem;
         this.rightItem = rightItem;
-        this.options = EnchantmentUtils.getAnvilActionOptions(leftItem, rightItem);
+        this.renameText = renameText;
+        this.options = EnchantmentUtils.getAnvilActionOptions(leftItem, rightItem, renameText);
     }
 
     public AnvilResult getResult() {
@@ -37,10 +39,25 @@ class AnvilAction {
             return null;
         }
 
-        ItemStack resultItem = new ItemStack(Material.BEDROCK);
+        ItemStack resultItem = null;
 
-        if (options.contains(AnvilActionOption.COMBINE_ENCHANT)) {
+        if (options.contains(AnvilActionOption.COMBINE_ENCHANT) || options.contains(AnvilActionOption.BOOK_ENCHANT)) {
             resultItem = EnchantmentUtils.getCombineEnchantmentResult(leftItem, rightItem);
+        }
+
+        if (options.contains(AnvilActionOption.RENAME)) {
+            // If the result item has not already been set, and the left item is alone in the anvil inventory,
+            // the action is rename-only, so the result item is a clone of the left item with the new name
+            if (resultItem == null && leftItem != null && rightItem == null) {
+                resultItem = leftItem.clone();
+            }
+
+            // The result item is guaranteed to be non-null at this point because of the conditional above
+            assert resultItem != null;
+            ItemMeta meta = resultItem.getItemMeta();
+            assert meta != null;
+            meta.setDisplayName(renameText);
+            resultItem.setItemMeta(meta);
         }
 
         return new AnvilResult(resultItem, 20);
@@ -330,13 +347,27 @@ public class EnchantmentUtils {
     }
 
     // Determines the type of action that the anvil is performing based on the input items
-    public static ArrayList<AnvilActionOption> getAnvilActionOptions(ItemStack leftItem, ItemStack rightItem) {
-        // If both slots are empty, the anvil does nothing
-        if (leftItem == null || rightItem == null) {
+    public static ArrayList<AnvilActionOption> getAnvilActionOptions(ItemStack leftItem, ItemStack rightItem, String renameText) {
+        // If the left slot is empty, the anvil does nothing
+        if (leftItem == null) {
             return new ArrayList<>();
         }
 
         ArrayList<AnvilActionOption> options = new ArrayList<>();
+
+        ItemMeta leftMeta = leftItem.getItemMeta();
+        assert leftMeta != null;
+        String leftName = leftMeta.getDisplayName();
+
+        // If there is a new name specified for the item, the anvil is renaming the item
+        if (renameText != null && !renameText.equals(leftName)) {
+            options.add(AnvilActionOption.RENAME);
+        }
+
+        // If there is no item in the right slot, the anvil only renames the item and does nothing else
+        if (rightItem == null) {
+            return options;
+        }
 
         // If both items are the same, they are being combined
         if (leftItem.getType() == rightItem.getType()) {
@@ -353,6 +384,7 @@ public class EnchantmentUtils {
         }
 
         // If the right item is an enchanted book, it is being "book enchanted," unless the left item is also an enchanted book
+        // TODO: Does this exception need to exist? They basically do the same thing
         if (rightItem.getType() == Material.ENCHANTED_BOOK && leftItem.getType() != Material.ENCHANTED_BOOK) {
             options.add(AnvilActionOption.BOOK_ENCHANT);
         }
@@ -362,8 +394,6 @@ public class EnchantmentUtils {
             options.add(AnvilActionOption.MATERIAL_REPAIR);
         }
 
-        // If only one slot is empty, and there is a new name specified for the item, the anvil is renaming the item
-        // TODO: Figure out how to do rename check
         return options;
     }
 }
