@@ -4,22 +4,33 @@ import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
-import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 
-class AnvilResult {
-    public final ItemStack resultItem;
-    public final int cost;
+import static com.lthoerner.betteranvils.EnchantUtils.getAllEnchantments;
+import static com.lthoerner.betteranvils.EnchantUtils.isEnchantable;
 
-    public AnvilResult(ItemStack resultItem, int cost) {
-        this.resultItem = resultItem;
-        this.cost = cost;
-    }
+enum AnvilActionOption {
+    RENAME,
+    COMBINE_ENCHANT,
+    BOOK_ENCHANT,
+    COMBINE_REPAIR,
+    MATERIAL_REPAIR,
+}
+
+enum DamageableMaterial {
+    LEATHER,
+    WOOD,
+    STONE,
+    IRON,
+    GOLD,
+    DIAMOND,
+    NETHERITE,
+    SCUTE,
+    PHANTOM_MEMBRANE,
 }
 
 class AnvilAction {
@@ -32,7 +43,7 @@ class AnvilAction {
         this.leftItem = leftItem;
         this.rightItem = rightItem;
         this.renameText = renameText;
-        this.options = EnchantmentUtils.getAnvilActionOptions(leftItem, rightItem, renameText);
+        this.options = AnvilUtils.getAnvilActionOptions(leftItem, rightItem, renameText);
     }
 
     public AnvilResult getResult() {
@@ -45,14 +56,14 @@ class AnvilAction {
         if (options.contains(AnvilActionOption.COMBINE_ENCHANT) || options.contains(AnvilActionOption.BOOK_ENCHANT)) {
             resultItem = cloneLeftItemIfResultNull(leftItem, null);
 
-            Map<Enchantment, Integer> combinedEnchants = EnchantmentUtils.combineEnchants(leftItem, rightItem);
-            EnchantmentUtils.applyEnchantments(resultItem, combinedEnchants, true);
+            Map<Enchantment, Integer> combinedEnchants = EnchantUtils.combineEnchants(leftItem, rightItem);
+            EnchantUtils.applyEnchantments(resultItem, combinedEnchants, true);
         }
 
         if (options.contains(AnvilActionOption.COMBINE_REPAIR)) {
             resultItem = cloneLeftItemIfResultNull(leftItem, resultItem);
 
-            int combinedDurability = EnchantmentUtils.combineDamage(leftItem, rightItem);
+            int combinedDurability = AnvilUtils.combineDamage(leftItem, rightItem);
             Damageable resultMeta = (Damageable) resultItem.getItemMeta();
             assert resultMeta != null;
             resultMeta.setDamage(combinedDurability);
@@ -82,109 +93,7 @@ class AnvilAction {
     }
 }
 
-enum AnvilActionOption {
-    RENAME,
-    COMBINE_ENCHANT,
-    BOOK_ENCHANT,
-    COMBINE_REPAIR,
-    MATERIAL_REPAIR,
-}
-
-enum DamageableMaterial {
-    LEATHER,
-    WOOD,
-    STONE,
-    IRON,
-    GOLD,
-    DIAMOND,
-    NETHERITE,
-    SCUTE,
-    PHANTOM_MEMBRANE,
-}
-
-public class EnchantmentUtils {
-    // Combines all the enchantments of an item, both standard and stored, into a single map
-    static Map<Enchantment, Integer> getAllEnchantments(ItemStack item) {
-        if (item == null) {
-            return null;
-        }
-
-        // Get the standard enchantments of the item
-        Map<Enchantment, Integer> allEnchantments = new HashMap<>(item.getEnchantments());
-
-        // Get the stored enchantments of the item if it is an enchanted book
-        // (Only enchanted books have an EnchantmentStorageMeta)
-        ItemMeta meta = item.getItemMeta();
-        if (meta instanceof EnchantmentStorageMeta) {
-            EnchantmentStorageMeta enchantmentMeta = (EnchantmentStorageMeta) meta;
-            // Combine the stored enchantments of the book with its standard enchantments
-            // Generally books should never have both standard and stored enchantments, but this is here just in case
-            allEnchantments.putAll(enchantmentMeta.getStoredEnchants());
-        }
-
-        return allEnchantments;
-    }
-
-    // Safely applies enchantments to an item, switching to stored enchantments if necessary
-    static void applyEnchantments(ItemStack item, Map<Enchantment, Integer> enchantments, boolean replaceEnchants) {
-        // If the replaceEnchants flag is set, reset the enchantments on the item before adding the new ones
-        if (replaceEnchants) {
-            stripEnchantments(item);
-        }
-
-        item.addUnsafeEnchantments(enchantments);
-
-        // If the item is an enchanted book, this converts the standard enchantments to stored enchantments
-        storeEnchantsInBook(item);
-    }
-
-    // Removes all the enchantments of an item, both standard and stored
-    static void stripEnchantments(ItemStack item) {
-        if (item == null) {
-            return;
-        }
-
-        // Strip the standard enchantments of the item
-        item.getEnchantments().keySet().forEach(item::removeEnchantment);
-
-        // Strip the stored enchantments of the item if it is an enchanted book
-        ItemMeta meta = item.getItemMeta();
-        if (meta instanceof EnchantmentStorageMeta) {
-            EnchantmentStorageMeta enchantmentMeta = (EnchantmentStorageMeta) meta;
-            enchantmentMeta.getStoredEnchants().keySet().forEach(enchantmentMeta::removeStoredEnchant);
-            item.setItemMeta(enchantmentMeta);
-        }
-    }
-
-    // If the given item is an enchanted book, converts its standard enchantments into stored enchantments
-    static void storeEnchantsInBook(ItemStack item) {
-        // Stored enchantments are only relevant for enchanted books
-        if (item == null || item.getType() != Material.ENCHANTED_BOOK) {
-            return;
-        }
-
-        // Get all the enchantments of the item and convert them to stored enchantments
-        EnchantmentStorageMeta enchantmentMeta = (EnchantmentStorageMeta) item.getItemMeta();
-        for (Map.Entry<Enchantment, Integer> entry : item.getEnchantments().entrySet()) {
-            assert enchantmentMeta != null;
-
-            // If the book already has an enchantment, take the higher level
-            int standardLevel = entry.getValue();
-            int resultLevel;
-            if (enchantmentMeta.hasStoredEnchant(entry.getKey())) {
-                int storedLevel = enchantmentMeta.getStoredEnchantLevel(entry.getKey());
-                resultLevel = Math.max(standardLevel, storedLevel);
-            } else {
-                resultLevel = standardLevel;
-            }
-
-            enchantmentMeta.addStoredEnchant(entry.getKey(), resultLevel, true);
-            enchantmentMeta.removeEnchant(entry.getKey());
-        }
-
-        item.setItemMeta(enchantmentMeta);
-    }
-
+public class AnvilUtils {
     // Gets the result of combine repairing two items in an anvil, represented by the amount of damage rather than
     // the amount of durability due to the way that Damageable works
     // Note: If one or both items are enchanted, this should be used in conjunction with combineEnchants
@@ -209,84 +118,6 @@ public class EnchantmentUtils {
         }
 
         return combinedDamage;
-    }
-
-    // Combines the enchantments of two items into a single map
-    // Note: If both items are the same, and the left item is not at full durability, this should be used
-    // in conjunction with getCombineRepairResultDurability
-    static Map<Enchantment, Integer> combineEnchants(ItemStack leftItem, ItemStack rightItem) {
-        Map<Enchantment, Integer> leftEnchantments = getAllEnchantments(leftItem);
-        Map<Enchantment, Integer> rightEnchantments = getAllEnchantments(rightItem);
-        Map<Enchantment, Integer> resultEnchantments = new HashMap<>();
-
-        // Add the left enchantments
-        for (Map.Entry<Enchantment, Integer> entry : leftEnchantments.entrySet()) {
-            Enchantment enchantment = entry.getKey();
-            int leftLevel = entry.getValue();
-
-            // If the enchantment is on both items, add the higher level or increment the level
-            // If the enchantment is only on the left item, add it
-            if (rightEnchantments.containsKey(enchantment)) {
-                // If the levels are different, add the higher level
-                // If the levels are the same, increment the level
-                int rightLevel = rightEnchantments.get(enchantment);
-                if (leftLevel != rightLevel) {
-                    resultEnchantments.put(enchantment, Math.max(leftLevel, rightLevel));
-                } else {
-                    resultEnchantments.put(enchantment, leftLevel + 1);
-                }
-            } else {
-                // If the enchantment is only on the left item, add it
-                resultEnchantments.put(enchantment, leftLevel);
-            }
-        }
-
-        // Add the right enchantments
-        for (Map.Entry<Enchantment, Integer> entry : rightEnchantments.entrySet()) {
-            Enchantment enchantment = entry.getKey();
-            int level = entry.getValue();
-
-            // If the enchantment is only on the right item, add it
-            if (!leftEnchantments.containsKey(enchantment)) {
-                resultEnchantments.put(enchantment, level);
-            }
-        }
-
-        return resultEnchantments;
-    }
-
-//    // Calculates the cost of combining two items in an anvil
-//    public static int calculateAnvilCost(ItemStack resultItem) {
-//        Map<Enchantment, Integer> enchantments = getAllEnchantments(resultItem);
-//
-//        // The cost of the enchantment is the sum of the levels of all enchantments multiplied by 2
-//        int cost = 0;
-//        for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
-//            cost += entry.getValue();
-//        }
-//
-//        return cost * 2;
-//    }
-
-    // Determines if an item can be enchanted, indicated by the fact that it is either a book, tool, weapon, or armor
-    static boolean isEnchantable(ItemStack item) {
-        if (item == null) {
-            return false;
-        }
-
-        // TODO: Exclude non-enchantable tools
-        Material type = item.getType();
-        return isDamageable(item) || type == Material.ENCHANTED_BOOK || type == Material.BOOK;
-    }
-
-    // Determines if the given item is a book or enchanted book
-    static boolean isBook(ItemStack item) {
-        if (item == null) {
-            return false;
-        }
-
-        Material type = item.getType();
-        return type == Material.ENCHANTED_BOOK || type == Material.BOOK;
     }
 
     // Determines if the given item is a tool, weapon, or armor, indicated by the fact that it is damageable
@@ -418,9 +249,10 @@ public class EnchantmentUtils {
 
         // If both items are the same, they are being combined
         if (leftItem.getType() == rightItem.getType()) {
-            // If at least the right item is enchanted, the items are being "combine enchanted"
+            // If at least one item is enchanted, the items are being "combine enchanted"
+            Map<Enchantment, Integer> leftEnchantments = getAllEnchantments(leftItem);
             Map<Enchantment, Integer> rightEnchantments = getAllEnchantments(rightItem);
-            if (!rightEnchantments.isEmpty() && isEnchantable(leftItem)) {
+            if ((!leftEnchantments.isEmpty() || !rightEnchantments.isEmpty()) && isEnchantable(leftItem)) {
                 options.add(AnvilActionOption.COMBINE_ENCHANT);
             }
 
@@ -442,5 +274,15 @@ public class EnchantmentUtils {
         }
 
         return options;
+    }
+}
+
+class AnvilResult {
+    public final ItemStack resultItem;
+    public final int cost;
+
+    public AnvilResult(ItemStack resultItem, int cost) {
+        this.resultItem = resultItem;
+        this.cost = cost;
     }
 }

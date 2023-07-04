@@ -9,7 +9,6 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class BetterAnvils extends JavaPlugin implements Listener {
-
     @Override
     public void onEnable() {
         // Plugin startup logic
@@ -35,7 +34,6 @@ public final class BetterAnvils extends JavaPlugin implements Listener {
 
         AnvilAction action = new AnvilAction(leftItem, rightItem, renameText);
         System.out.println("Options: " + action.options);
-        System.out.println("Rename text: " + renameText);
         AnvilResult result = action.getResult();
 
         if (result != null) {
