@@ -10,8 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.Map;
 
-import static com.lthoerner.betteranvils.EnchantUtils.getAllEnchantments;
-import static com.lthoerner.betteranvils.EnchantUtils.isEnchantable;
+import static com.lthoerner.betteranvils.EnchantUtils.*;
 
 enum AnvilActionOption {
     RENAME,
@@ -51,35 +50,74 @@ class AnvilAction {
             return null;
         }
 
-        ItemStack resultItem = null;
+        // TODO: Make this configurable
+        int MAX_ANVIL_COST = 30;
+        int ENCHANT_COST_MULTIPLIER = 1;
+        int DURABILITY_PER_LEVEL_COST = 100;
+        int MIN_REPAIR_COST = 3;
 
-        if (options.contains(AnvilActionOption.COMBINE_ENCHANT) || options.contains(AnvilActionOption.BOOK_ENCHANT)) {
+        boolean combineEnchant = options.contains(AnvilActionOption.COMBINE_ENCHANT);
+        boolean bookEnchant = options.contains(AnvilActionOption.BOOK_ENCHANT);
+        boolean combineRepair = options.contains(AnvilActionOption.COMBINE_REPAIR);
+        boolean materialRepair = options.contains(AnvilActionOption.MATERIAL_REPAIR);
+        boolean rename = options.contains(AnvilActionOption.RENAME);
+
+        ItemStack resultItem = null;
+        int cost = 0;
+
+        // An item cannot be combine enchanted and book enchanted simultaneously
+        if (combineEnchant ^ bookEnchant) {
             resultItem = cloneLeftItemIfResultNull(leftItem, null);
 
             Map<Enchantment, Integer> combinedEnchants = EnchantUtils.combineEnchants(leftItem, rightItem);
             EnchantUtils.applyEnchantments(resultItem, combinedEnchants, true);
+
+            cost += ENCHANT_COST_MULTIPLIER * totalLevels(resultItem);
         }
 
-        if (options.contains(AnvilActionOption.COMBINE_REPAIR)) {
+        // An item cannot be combine repaired and material repaired simultaneously
+        if (combineRepair ^ materialRepair) {
             resultItem = cloneLeftItemIfResultNull(leftItem, resultItem);
 
-            int combinedDurability = AnvilUtils.combineDamage(leftItem, rightItem);
+            Damageable metaBeforeRepair = (Damageable) resultItem.getItemMeta();
+            assert metaBeforeRepair != null;
+            int damageBeforeRepair = metaBeforeRepair.getDamage();
+
+            int damageAfterRepair;
+            if (combineRepair) {
+                damageAfterRepair = AnvilUtils.combineDamage(leftItem, rightItem);
+            } else {
+                damageAfterRepair = AnvilUtils.materialRepairDamage(leftItem, rightItem.getAmount());
+            }
+
             Damageable resultMeta = (Damageable) resultItem.getItemMeta();
             assert resultMeta != null;
-            resultMeta.setDamage(combinedDurability);
+            resultMeta.setDamage(damageAfterRepair);
             resultItem.setItemMeta(resultMeta);
+
+            int healedDamage = damageBeforeRepair - damageAfterRepair;
+
+            int repairLevelCost = healedDamage / DURABILITY_PER_LEVEL_COST;
+            if (repairLevelCost <= MIN_REPAIR_COST) {
+                repairLevelCost = MIN_REPAIR_COST;
+            }
+
+            cost += repairLevelCost;
         }
 
-        if (options.contains(AnvilActionOption.RENAME)) {
+        if (rename) {
             resultItem = cloneLeftItemIfResultNull(leftItem, resultItem);
 
             ItemMeta resultMeta = resultItem.getItemMeta();
             assert resultMeta != null;
             resultMeta.setDisplayName(renameText);
             resultItem.setItemMeta(resultMeta);
+
+            cost += 1;
         }
 
-        return new AnvilResult(resultItem, 20);
+        assert resultItem != null;
+        return new AnvilResult(resultItem, Math.min(MAX_ANVIL_COST, cost));
     }
 
     // This function is used to ensure that the AnvilActionOptions can be applied both independently and
@@ -94,138 +132,8 @@ class AnvilAction {
 }
 
 public class AnvilUtils {
-    // Gets the result of combine repairing two items in an anvil, represented by the amount of damage rather than
-    // the amount of durability due to the way that Damageable works
-    // Note: If one or both items are enchanted, this should be used in conjunction with combineEnchants
-    static int combineDamage(ItemStack leftItem, ItemStack rightItem) {
-        Damageable leftMeta = (Damageable) leftItem.getItemMeta();
-        Damageable rightMeta = (Damageable) rightItem.getItemMeta();
-        // Both items must be damageable to get to this point, because otherwise the AnvilAction
-        // should not have been classified as a COMBINE_REPAIR
-        assert leftMeta != null;
-        assert rightMeta != null;
-
-        int maxDurability = leftItem.getType().getMaxDurability();
-
-        int leftRemainingDurability = maxDurability - leftMeta.getDamage();
-        int rightRemainingDurability = maxDurability - rightMeta.getDamage();
-
-        int combinedDurability = leftRemainingDurability + rightRemainingDurability;
-        // If the combined durability is higher than the max durability for the item, the resulting damage is 0
-        int combinedDamage = maxDurability - combinedDurability;
-        if (combinedDamage < 0) {
-            combinedDamage = 0;
-        }
-
-        return combinedDamage;
-    }
-
-    // Determines if the given item is a tool, weapon, or armor, indicated by the fact that it is damageable
-    static boolean isDamageable(ItemStack item) {
-        return item != null && item.getItemMeta() instanceof Damageable;
-    }
-
-    // Determines if the given item both is damageable and is not at full durability (is damaged)
-    static boolean isDamaged(ItemStack item) {
-        if (!isDamageable(item)) {
-            return false;
-        }
-
-        Damageable meta = (Damageable) item.getItemMeta();
-        // The item has to have a Damageable meta if it is damageable, so this should never be null
-        assert meta != null;
-        return meta.hasDamage();
-    }
-
-    // Determines if the material on the right side of the anvil matches the tool, weapon, or armor on the left side
-    static boolean materialRepairsItem(ItemStack leftItem, ItemStack rightItem) {
-        if (leftItem == null || rightItem == null) {
-            return false;
-        }
-
-        if (!isDamageable(leftItem) || repairMaterialType(rightItem) == null) {
-            return false;
-        }
-
-        DamageableMaterial leftMaterial = getRepairMaterial(leftItem);
-        DamageableMaterial rightMaterial = repairMaterialType(rightItem);
-        return leftMaterial == rightMaterial;
-    }
-
-    // Determines the material used to repair the given item, or null if the item cannot be repaired with a material
-    static DamageableMaterial getRepairMaterial(ItemStack item) {
-        // Only damageable items can be repaired
-        if (!isDamageable(item)) {
-            return null;
-        }
-
-        Material damageableItemType = item.getType();
-        // Special cases for tools that are not made of the standard materials, or do not have a material prefix
-        if (damageableItemType == Material.SHIELD) {
-            return DamageableMaterial.WOOD;
-        } else if (damageableItemType == Material.TURTLE_HELMET) {
-            return DamageableMaterial.SCUTE;
-        } else if (damageableItemType == Material.ELYTRA) {
-            return DamageableMaterial.PHANTOM_MEMBRANE;
-        }
-
-        // General cases for most tools, weapons, and armor
-        String damageableItemName = damageableItemType.name();
-        if (damageableItemName.startsWith("LEATHER_")) {
-            return DamageableMaterial.LEATHER;
-        } else if (damageableItemName.startsWith("WOODEN_")) {
-            return DamageableMaterial.WOOD;
-        } else if (damageableItemName.startsWith("STONE_")) {
-            return DamageableMaterial.STONE;
-        } else if (damageableItemName.startsWith("IRON_") || damageableItemName.startsWith("CHAINMAIL_")) {
-            return DamageableMaterial.IRON;
-        } else if (damageableItemName.startsWith("GOLDEN_")) {
-            return DamageableMaterial.GOLD;
-        } else if (damageableItemName.startsWith("DIAMOND_")) {
-            return DamageableMaterial.DIAMOND;
-        } else if (damageableItemName.startsWith("NETHERITE_")) {
-            return DamageableMaterial.NETHERITE;
-        } else {
-            return null;
-        }
-    }
-
-    // If the given item is a material used to repair tools, weapons, or armor, converts it from a Material to a DamageableMaterial
-    static DamageableMaterial repairMaterialType(ItemStack item) {
-        if (item == null) {
-            return null;
-        }
-
-        Material itemType = item.getType();
-
-        if (itemType.name().endsWith("_PLANKS")) {
-            return DamageableMaterial.WOOD;
-        }
-
-        switch (itemType) {
-            case LEATHER:
-                return DamageableMaterial.LEATHER;
-            case STONE:
-                return DamageableMaterial.STONE;
-            case IRON_INGOT:
-                return DamageableMaterial.IRON;
-            case GOLD_INGOT:
-                return DamageableMaterial.GOLD;
-            case DIAMOND:
-                return DamageableMaterial.DIAMOND;
-            case NETHERITE_INGOT:
-                return DamageableMaterial.NETHERITE;
-            case SCUTE:
-                return DamageableMaterial.SCUTE;
-            case PHANTOM_MEMBRANE:
-                return DamageableMaterial.PHANTOM_MEMBRANE;
-            default:
-                return null;
-        }
-    }
-
     // Determines the type of action that the anvil is performing based on the input items
-    static ArrayList<AnvilActionOption> getAnvilActionOptions(ItemStack leftItem, ItemStack rightItem, String renameText) {
+    static @NotNull ArrayList<AnvilActionOption> getAnvilActionOptions(ItemStack leftItem, ItemStack rightItem, String renameText) {
         // If the left slot is empty, the anvil does nothing
         if (leftItem == null) {
             return new ArrayList<>();
@@ -263,7 +171,8 @@ public class AnvilUtils {
         }
 
         // If the right item is an enchanted book, it is being "book enchanted," unless the left item is also an enchanted book
-        // TODO: Does this exception need to exist? They basically do the same thing
+        // This exception needs to exist because combine enchanting and book enchanting are mutually exclusive,
+        // mostly to avoid duplicate level costs
         if (rightItem.getType() == Material.ENCHANTED_BOOK && leftItem.getType() != Material.ENCHANTED_BOOK) {
             options.add(AnvilActionOption.BOOK_ENCHANT);
         }
@@ -275,13 +184,196 @@ public class AnvilUtils {
 
         return options;
     }
+
+    // Gets the result of combine repairing two items in an anvil, represented by the amount of damage rather than
+    // the amount of durability due to the way that Damageable works
+    // Note: If one or both items are enchanted, this should be used in conjunction with combineEnchants
+    static int combineDamage(@NotNull ItemStack leftItem, @NotNull ItemStack rightItem) {
+        Damageable leftMeta = (Damageable) leftItem.getItemMeta();
+        Damageable rightMeta = (Damageable) rightItem.getItemMeta();
+        // Both items must be damageable to get to this point, because otherwise the AnvilAction
+        // should not have been classified as a COMBINE_REPAIR
+        assert leftMeta != null;
+        assert rightMeta != null;
+
+        int maxDurability = leftItem.getType().getMaxDurability();
+
+        int leftRemainingDurability = maxDurability - leftMeta.getDamage();
+        int rightRemainingDurability = maxDurability - rightMeta.getDamage();
+
+        int combinedDurability = leftRemainingDurability + rightRemainingDurability;
+        // If the combined durability is higher than the max durability for the item, the resulting damage is 0
+        int combinedDamage = maxDurability - combinedDurability;
+        if (combinedDamage < 0) {
+            combinedDamage = 0;
+        }
+
+        return combinedDamage;
+    }
+
+    // Gets the damage value of an item being material repaired, given the amount of materials provided
+    static int materialRepairDamage(@NotNull ItemStack item, int materialCount) {
+        Damageable itemMeta = (Damageable) item.getItemMeta();
+        assert itemMeta != null;
+
+        int maxDurability = item.getType().getMaxDurability();
+        int remainingDurability = maxDurability - itemMeta.getDamage();
+        Integer fullRepairMaterialCost = repairMaterialCost(item);
+        assert fullRepairMaterialCost != null;
+
+        int durabilityPerMaterial = maxDurability / fullRepairMaterialCost;
+        int materialAddedDurability = materialCount * durabilityPerMaterial;
+        int combinedDurability = remainingDurability + materialAddedDurability;
+
+        int combinedDamage = maxDurability - combinedDurability;
+        if (combinedDamage < 0) {
+            combinedDamage = 0;
+        }
+
+        return combinedDamage;
+    }
+
+    // Determines if the given item is a tool, weapon, or armor, indicated by the fact that it is damageable
+    static boolean isDamageable(@NotNull ItemStack item) {
+        return item.getItemMeta() instanceof Damageable;
+    }
+
+    // Determines if the given item both is damageable and is not at full durability (is damaged)
+    static boolean isDamaged(@NotNull ItemStack item) {
+        if (!isDamageable(item)) {
+            return false;
+        }
+
+        Damageable meta = (Damageable) item.getItemMeta();
+        // The item has to have a Damageable meta if it is damageable, so this should never be null
+        assert meta != null;
+        return meta.hasDamage();
+    }
+
+    // Determines if the material on the right side of the anvil matches the tool, weapon, or armor on the left side
+    static boolean materialRepairsItem(@NotNull ItemStack leftItem, @NotNull ItemStack rightItem) {
+        if (!isDamageable(leftItem) || repairMaterialType(rightItem) == null) {
+            return false;
+        }
+
+        DamageableMaterial leftMaterial = getRepairMaterial(leftItem);
+        DamageableMaterial rightMaterial = repairMaterialType(rightItem);
+        return leftMaterial == rightMaterial;
+    }
+
+    // Determines the material used to repair the given item, or null if the item cannot be repaired with a material
+    static DamageableMaterial getRepairMaterial(@NotNull ItemStack item) {
+        // Only damageable items can be repaired
+        if (!isDamageable(item)) {
+            return null;
+        }
+
+        Material damageableItemType = item.getType();
+        // Special cases for tools that are not made of the standard materials, or do not have a material prefix
+        if (damageableItemType == Material.SHIELD) {
+            return DamageableMaterial.WOOD;
+        } else if (damageableItemType == Material.TURTLE_HELMET) {
+            return DamageableMaterial.SCUTE;
+        } else if (damageableItemType == Material.ELYTRA) {
+            return DamageableMaterial.PHANTOM_MEMBRANE;
+        }
+
+        // General cases for most tools, weapons, and armor
+        String damageableItemName = damageableItemType.name();
+        if (damageableItemName.startsWith("LEATHER_")) {
+            return DamageableMaterial.LEATHER;
+        } else if (damageableItemName.startsWith("WOODEN_")) {
+            return DamageableMaterial.WOOD;
+        } else if (damageableItemName.startsWith("STONE_")) {
+            return DamageableMaterial.STONE;
+        } else if (damageableItemName.startsWith("IRON_") || damageableItemName.startsWith("CHAINMAIL_")) {
+            return DamageableMaterial.IRON;
+        } else if (damageableItemName.startsWith("GOLDEN_")) {
+            return DamageableMaterial.GOLD;
+        } else if (damageableItemName.startsWith("DIAMOND_")) {
+            return DamageableMaterial.DIAMOND;
+        } else if (damageableItemName.startsWith("NETHERITE_")) {
+            return DamageableMaterial.NETHERITE;
+        } else {
+            return null;
+        }
+    }
+
+    // If the given item is a material used to repair tools, weapons, or armor, converts it from a Material to a DamageableMaterial
+    static DamageableMaterial repairMaterialType(@NotNull ItemStack item) {
+        Material itemType = item.getType();
+
+        if (itemType.name().endsWith("_PLANKS")) {
+            return DamageableMaterial.WOOD;
+        }
+
+        switch (itemType) {
+            case LEATHER:
+                return DamageableMaterial.LEATHER;
+            case STONE:
+                return DamageableMaterial.STONE;
+            case IRON_INGOT:
+                return DamageableMaterial.IRON;
+            case GOLD_INGOT:
+                return DamageableMaterial.GOLD;
+            case DIAMOND:
+                return DamageableMaterial.DIAMOND;
+            case NETHERITE_INGOT:
+                return DamageableMaterial.NETHERITE;
+            case SCUTE:
+                return DamageableMaterial.SCUTE;
+            case PHANTOM_MEMBRANE:
+                return DamageableMaterial.PHANTOM_MEMBRANE;
+            default:
+                return null;
+        }
+    }
+
+    // Gets the amount of repair material required to repair a given item from 0 to full durability
+    static Integer repairMaterialCost(@NotNull ItemStack item) {
+        // TODO: Make this a configuration option
+        double REPAIR_MATERIAL_COST_MODIFIER = 1;
+
+        Material damageableItemType = item.getType();
+        String damageableItemName = damageableItemType.name();
+
+        double materialCount;
+
+        if (damageableItemType == Material.SHIELD) {
+            materialCount = 6;
+        } else if (damageableItemType == Material.ELYTRA) {
+            materialCount = 7;
+        } else if (damageableItemName.endsWith("_HELMET") || damageableItemName.endsWith("_CAP")) {
+            materialCount = 5;
+        } else if (damageableItemName.endsWith("_CHESTPLATE") || damageableItemName.endsWith("_TUNIC")) {
+            materialCount = 8;
+        } else if (damageableItemName.endsWith("_LEGGINGS") || damageableItemName.endsWith("_PANTS")) {
+            materialCount = 7;
+        } else if (damageableItemName.endsWith("_BOOTS")) {
+            materialCount = 4;
+        } else if (damageableItemName.endsWith("_SWORD")) {
+            materialCount = 2;
+        } else if (damageableItemName.endsWith("_PICKAXE")) {
+            materialCount = 3;
+        } else if (damageableItemName.endsWith("_AXE")) {
+            materialCount = 3;
+        } else if (damageableItemName.endsWith("_SHOVEL")) {
+            materialCount = 1;
+        } else if (damageableItemName.endsWith("_HOE")) {
+            materialCount = 2;
+        } else {
+            return null;
+        }
+
+        return (int) (REPAIR_MATERIAL_COST_MODIFIER * materialCount);
+    }
 }
 
 class AnvilResult {
-    public final ItemStack resultItem;
+    public final @NotNull ItemStack resultItem;
     public final int cost;
 
-    public AnvilResult(ItemStack resultItem, int cost) {
+    public AnvilResult(@NotNull ItemStack resultItem, int cost) {
         this.resultItem = resultItem;
         this.cost = cost;
     }

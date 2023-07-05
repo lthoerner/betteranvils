@@ -138,18 +138,17 @@ public class EnchantUtils {
         return resultEnchantments;
     }
 
-//    // Calculates the cost of combining two items in an anvil
-//    public static int calculateAnvilCost(ItemStack resultItem) {
-//        Map<Enchantment, Integer> enchantments = getAllEnchantments(resultItem);
-//
-//        // The cost of the enchantment is the sum of the levels of all enchantments multiplied by 2
-//        int cost = 0;
-//        for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
-//            cost += entry.getValue();
-//        }
-//
-//        return cost * 2;
-//    }
+    // Calculates the total number of enchantment levels on an item
+    // Used for anvil cost calculations
+    public static int totalLevels(ItemStack item) {
+        Map<Enchantment, Integer> enchantments = getAllEnchantments(item);
+        int totalLevels = 0;
+        for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
+            totalLevels += entry.getValue();
+        }
+
+        return totalLevels;
+    }
 
     // Determines if an item can be enchanted, indicated by the fact that it is either a book, tool, weapon, or armor
     static boolean isEnchantable(ItemStack item) {
