@@ -69,8 +69,8 @@ class AnvilAction {
         if (combineEnchant ^ bookEnchant) {
             resultItem = cloneLeftItemIfResultNull(leftItem, null);
 
-            Map<Enchantment, Integer> combinedEnchants = EnchantUtils.combineEnchants(leftItem, rightItem);
-            EnchantUtils.applyEnchantments(resultItem, combinedEnchants, true);
+            Map<Enchantment, Integer> combinedEnchants = combineEnchants(leftItem, rightItem);
+            applyEnchantments(resultItem, combinedEnchants, true);
 
             cost += ENCHANT_COST_MULTIPLIER * totalLevels(resultItem);
         }
@@ -94,6 +94,13 @@ class AnvilAction {
             assert resultMeta != null;
             resultMeta.setDamage(damageAfterRepair);
             resultItem.setItemMeta(resultMeta);
+
+            // If the items are being combine repaired, they may not necessarily be combine enchanted, but
+            // their enchantments must be combined nonetheless
+            if (combineRepair) {
+                Map<Enchantment, Integer> combinedEnchants = combineEnchants(leftItem, rightItem);
+                applyEnchantments(resultItem, combinedEnchants, true);
+            }
 
             int healedDamage = damageBeforeRepair - damageAfterRepair;
 
@@ -160,7 +167,9 @@ public class AnvilUtils {
             // If at least one item is enchanted, the items are being "combine enchanted"
             Map<Enchantment, Integer> leftEnchantments = getAllEnchantments(leftItem);
             Map<Enchantment, Integer> rightEnchantments = getAllEnchantments(rightItem);
-            if ((!leftEnchantments.isEmpty() || !rightEnchantments.isEmpty()) && isEnchantable(leftItem)) {
+            boolean bothItemsEnchanted = !leftEnchantments.isEmpty() && !rightEnchantments.isEmpty();
+            boolean leftItemEnchantable = isEnchantable(leftItem);
+            if (bothItemsEnchanted && leftItemEnchantable) {
                 options.add(AnvilActionOption.COMBINE_ENCHANT);
             }
 
@@ -180,6 +189,13 @@ public class AnvilUtils {
         // If the left item is repairable, and the right item is a material used to repair it, it is being "material repaired"
         if (materialRepairsItem(leftItem, rightItem)) {
             options.add(AnvilActionOption.MATERIAL_REPAIR);
+        }
+
+        // If no options other than RENAME are specified, and there is an item in the right-hand slot, the rename
+        // operation would consume the right item unnecessarily, hence this condition
+        // All these conditions would automatically be true if options only has one element at this point
+        if (options.size() == 1) {
+            options.remove(AnvilActionOption.RENAME);
         }
 
         return options;
