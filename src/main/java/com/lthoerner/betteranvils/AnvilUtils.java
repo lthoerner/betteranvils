@@ -104,12 +104,7 @@ class AnvilAction {
 
             int healedDamage = damageBeforeRepair - damageAfterRepair;
 
-            int repairLevelCost = healedDamage / DURABILITY_PER_LEVEL_COST;
-            if (repairLevelCost <= MIN_REPAIR_COST) {
-                repairLevelCost = MIN_REPAIR_COST;
-            }
-
-            cost += repairLevelCost;
+            cost += Math.max(MIN_REPAIR_COST, healedDamage / DURABILITY_PER_LEVEL_COST);
         }
 
         if (rename) {
