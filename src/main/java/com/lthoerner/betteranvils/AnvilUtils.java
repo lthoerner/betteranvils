@@ -70,7 +70,13 @@ class AnvilAction {
             resultItem = cloneLeftItemIfResultNull(leftItem, null);
 
             Map<Enchantment, Integer> combinedEnchants = combineEnchants(leftItem, rightItem);
-            applyEnchantments(resultItem, combinedEnchants, true);
+            resultItem = applyEnchantments(resultItem, combinedEnchants, true);
+
+            // If enchantment has failed, the entire operation must be canceled to prevent the result item
+            // from being renamed or repaired and losing its enchantments
+            if (resultItem == null) {
+                return null;
+            }
 
             cost += ENCHANT_COST_MULTIPLIER * totalLevels(resultItem);
         }
@@ -99,7 +105,10 @@ class AnvilAction {
             // their enchantments must be combined nonetheless
             if (combineRepair) {
                 Map<Enchantment, Integer> combinedEnchants = combineEnchants(leftItem, rightItem);
-                applyEnchantments(resultItem, combinedEnchants, true);
+                // This should never be null, because if two items are being combine repaired without having already
+                // gone through the validation process in the combineEnchant/bookEnchant section, one of the items is
+                // not enchanted and validation is not necessary
+                resultItem = applyEnchantments(resultItem, combinedEnchants, true);
             }
 
             int healedDamage = damageBeforeRepair - damageAfterRepair;

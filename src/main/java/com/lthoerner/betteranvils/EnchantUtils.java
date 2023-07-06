@@ -12,6 +12,57 @@ import java.util.Map;
 import static com.lthoerner.betteranvils.AnvilUtils.isDamageable;
 
 public class EnchantUtils {
+    // TODO: Make this configurable
+    public static HashMap<Enchantment, Integer> MAX_ENCHANT_LEVELS = new HashMap<>(38);
+    static {
+        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_ALL, 10);
+        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_UNDEAD, 10);
+        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_ARTHROPODS, 10);
+        MAX_ENCHANT_LEVELS.put(Enchantment.FIRE_ASPECT, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.KNOCKBACK, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.LOOT_BONUS_MOBS, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.SWEEPING_EDGE, 5);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.IMPALING, 10);
+        MAX_ENCHANT_LEVELS.put(Enchantment.RIPTIDE, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.LOYALTY, 5);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_DAMAGE, 10);
+        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_FIRE, 1);
+        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_KNOCKBACK, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_INFINITE, 1);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.PIERCING, 8);
+        MAX_ENCHANT_LEVELS.put(Enchantment.QUICK_CHARGE, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.MULTISHOT, 1);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.DIG_SPEED, 10);
+        MAX_ENCHANT_LEVELS.put(Enchantment.LOOT_BONUS_BLOCKS, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.SILK_TOUCH, 1);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.LURE, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.LUCK, 5);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_ENVIRONMENTAL, 8);
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_FIRE, 8);
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_PROJECTILE, 8);
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_EXPLOSIONS, 8);
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_FALL, 8);
+        MAX_ENCHANT_LEVELS.put(Enchantment.THORNS, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.SOUL_SPEED, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.SWIFT_SNEAK, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.DEPTH_STRIDER, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.OXYGEN, 5);
+        MAX_ENCHANT_LEVELS.put(Enchantment.WATER_WORKER, 1);
+        MAX_ENCHANT_LEVELS.put(Enchantment.FROST_WALKER, 5);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.DURABILITY, 10);
+        MAX_ENCHANT_LEVELS.put(Enchantment.MENDING, 1);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.BINDING_CURSE, 1);
+        MAX_ENCHANT_LEVELS.put(Enchantment.VANISHING_CURSE, 1);
+    }
+
     // Combines all the enchantments of an item, both standard and stored, into a single map
     static Map<Enchantment, Integer> getAllEnchantments(ItemStack item) {
         if (item == null) {
@@ -35,16 +86,48 @@ public class EnchantUtils {
     }
 
     // Safely applies enchantments to an item, switching to stored enchantments if necessary
-    static void applyEnchantments(ItemStack item, Map<Enchantment, Integer> enchantments, boolean replaceEnchants) {
+    // Returns the item if the enchantments were applied successfully, but null if there are
+    // conflicting or otherwise illegal enchantments
+    static ItemStack applyEnchantments(ItemStack item, Map<Enchantment, Integer> enchantments, boolean replaceEnchants) {
+        // The item is cloned in order to check whether each enchantment is legal without modifying the original item
+        ItemStack enchantedItem = item.clone();
+
         // If the replaceEnchants flag is set, reset the enchantments on the item before adding the new ones
         if (replaceEnchants) {
-            stripEnchantments(item);
+            stripEnchantments(enchantedItem);
         }
 
-        item.addUnsafeEnchantments(enchantments);
+        for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
+            Enchantment enchantment = entry.getKey();
+            int originalLevel = entry.getValue();
+
+            System.out.println("Attempting to apply " + enchantment + " at level " + originalLevel);
+
+            // If the level is higher than the maximum allowed level for the enchantment, set it to the maximum
+            int level = normalizeEnchantLevel(enchantment, entry.getValue());
+
+            System.out.println("Level normalized to " + level);
+
+            // If the enchantment is allowed for the given item and does not conflict, add it
+            // Otherwise, cancel the operation altogether by returning null
+            // For some reason Enchantment.canEnchantItem() does not work for enchanted books,
+            // so they must have an exception
+            // TODO: Exclude incompatible enchantments from books to prevent accidentally making books useless
+            if (enchantment.canEnchantItem(enchantedItem) || isBook(enchantedItem)) {
+                enchantedItem.addUnsafeEnchantment(enchantment, level);
+                System.out.println("Successfully applied enchantment.");
+            } else {
+                System.out.println("Enchantment " + enchantment + " illegal for item " + enchantedItem + ".");
+                return null;
+            }
+        }
+
+        System.out.println("Successfully applied all enchantments to " + enchantedItem + ".");
 
         // If the item is an enchanted book, this converts the standard enchantments to stored enchantments
-        storeEnchantsInBook(item);
+        storeEnchantsInBook(enchantedItem);
+
+        return enchantedItem;
     }
 
     // Removes all the enchantments of an item, both standard and stored
@@ -157,7 +240,6 @@ public class EnchantUtils {
         }
 
         // TODO: Exclude non-enchantable tools
-        Material type = item.getType();
         return isDamageable(item) || isBook(item);
     }
 
@@ -169,5 +251,11 @@ public class EnchantUtils {
 
         Material type = item.getType();
         return type == Material.ENCHANTED_BOOK || type == Material.BOOK;
+    }
+
+    // Either returns the given enchantment level or the maximum level for the enchantment,
+    // depending on whether the given level exceeds the maximum
+    static int normalizeEnchantLevel(Enchantment enchantment, int level) {
+        return Math.min(level, MAX_ENCHANT_LEVELS.get(enchantment));
     }
 }
