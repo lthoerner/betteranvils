@@ -5,6 +5,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -133,14 +134,12 @@ public class EnchantUtils {
     // Safely applies enchantments to an item, switching to stored enchantments if necessary
     // Returns the item if the enchantments were applied successfully, but null if there are
     // conflicting or otherwise illegal enchantments
-    static ItemStack applyEnchantments(ItemStack item, Map<Enchantment, Integer> enchantments, boolean replaceEnchants) {
+    static ItemStack applyEnchantments(@NotNull ItemStack item, @NotNull Map<Enchantment, Integer> enchantments) {
         // The item is cloned in order to check whether each enchantment is legal without modifying the original item
         ItemStack enchantedItem = item.clone();
 
-        // If the replaceEnchants flag is set, reset the enchantments on the item before adding the new ones
-        if (replaceEnchants) {
-            stripEnchantments(enchantedItem);
-        }
+        // Reset the enchantments on the item before adding the new ones
+        stripEnchantments(enchantedItem);
 
         // If there are incompatible enchantments in the list, the operation is cancelled
         if (hasIncompatibleEnchants(enchantments)) {
@@ -170,11 +169,7 @@ public class EnchantUtils {
     }
 
     // Removes all the enchantments of an item, both standard and stored
-    static void stripEnchantments(ItemStack item) {
-        if (item == null) {
-            return;
-        }
-
+    static void stripEnchantments(@NotNull ItemStack item) {
         // Strip the standard enchantments of the item
         item.getEnchantments().keySet().forEach(item::removeEnchantment);
 
@@ -188,9 +183,9 @@ public class EnchantUtils {
     }
 
     // If the given item is an enchanted book, converts its standard enchantments into stored enchantments
-    static void storeEnchantsInBook(ItemStack item) {
+    static void storeEnchantsInBook(@NotNull ItemStack item) {
         // Stored enchantments are only relevant for enchanted books
-        if (item == null || item.getType() != Material.ENCHANTED_BOOK) {
+        if (item.getType() != Material.ENCHANTED_BOOK) {
             return;
         }
 
@@ -219,7 +214,7 @@ public class EnchantUtils {
     // Combines the enchantments of two items into a single map
     // Note: If both items are the same, and the left item is not at full durability, this should be used
     // in conjunction with getCombineRepairResultDurability
-    static Map<Enchantment, Integer> combineEnchants(ItemStack leftItem, ItemStack rightItem) {
+    static @NotNull Map<Enchantment, Integer> combineEnchants(@NotNull ItemStack leftItem, @NotNull ItemStack rightItem) {
         Map<Enchantment, Integer> leftEnchantments = getAllEnchantments(leftItem);
         Map<Enchantment, Integer> rightEnchantments = getAllEnchantments(rightItem);
         Map<Enchantment, Integer> resultEnchantments = new HashMap<>();
@@ -262,7 +257,7 @@ public class EnchantUtils {
 
     // Calculates the total number of enchantment levels on an item
     // Used for anvil cost calculations
-    public static int totalLevels(ItemStack item) {
+    public static int totalLevels(@NotNull ItemStack item) {
         Map<Enchantment, Integer> enchantments = getAllEnchantments(item);
         int totalLevels = 0;
         for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
@@ -273,11 +268,7 @@ public class EnchantUtils {
     }
 
     // Determines if an item can be enchanted, indicated by the fact that it is either a book, tool, weapon, or armor
-    static boolean isEnchantable(ItemStack item) {
-        if (item == null) {
-            return false;
-        }
-
+    static boolean isEnchantable(@NotNull ItemStack item) {
         // TODO: Exclude non-enchantable tools (are there any?)
         return isDamageable(item) || isBook(item);
     }

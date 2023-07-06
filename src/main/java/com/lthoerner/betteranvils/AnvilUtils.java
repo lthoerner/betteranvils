@@ -36,7 +36,7 @@ class AnvilAction {
     public final ItemStack leftItem;
     public final ItemStack rightItem;
     public final String renameText;
-    public final ArrayList<AnvilActionOption> options;
+    public final @NotNull ArrayList<AnvilActionOption> options;
 
     // TODO: Make this configurable
     static int MAX_ANVIL_COST = 30;
@@ -70,7 +70,7 @@ class AnvilAction {
             resultItem = cloneLeftItemIfResultNull(leftItem, null);
 
             Map<Enchantment, Integer> combinedEnchants = combineEnchants(leftItem, rightItem);
-            resultItem = applyEnchantments(resultItem, combinedEnchants, true);
+            resultItem = applyEnchantments(resultItem, combinedEnchants);
 
             // If enchantment has failed, the entire operation must be canceled to prevent the result item
             // from being losing its enchantments in the process of being renamed or repaired
@@ -108,7 +108,7 @@ class AnvilAction {
                 // This should never be null, because if two items are being combine repaired without having already
                 // gone through the validation process in the combineEnchant/bookEnchant section, one of the items is
                 // not enchanted and validation is not necessary
-                resultItem = applyEnchantments(resultItem, combinedEnchants, true);
+                resultItem = applyEnchantments(resultItem, combinedEnchants);
             }
 
             int healedDamage = damageBeforeRepair - damageAfterRepair;
@@ -347,7 +347,9 @@ public class AnvilUtils {
         switch (itemType) {
             case LEATHER:
                 return DamageableMaterial.LEATHER;
-            case STONE:
+            case COBBLESTONE:
+            case COBBLED_DEEPSLATE:
+            case BLACKSTONE:
                 return DamageableMaterial.STONE;
             case IRON_INGOT:
                 return DamageableMaterial.IRON;
