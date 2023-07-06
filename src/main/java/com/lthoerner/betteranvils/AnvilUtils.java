@@ -79,7 +79,7 @@ class AnvilAction {
             resultItem = cloneLeftItemIfResultNull(leftItem, null);
 
             Map<Enchantment, Integer> combinedEnchants = combineEnchants(leftItem, rightItem);
-            resultItem = applyEnchantments(resultItem, combinedEnchants);
+            resultItem = applyEnchants(resultItem, combinedEnchants);
 
             // If enchantment has failed, the entire operation must be canceled to prevent the result item
             // from being losing its enchantments in the process of being renamed or repaired
@@ -117,7 +117,7 @@ class AnvilAction {
                 // This should never be null, because if two items are being combine repaired without having already
                 // gone through the validation process in the combineEnchant/bookEnchant section, one of the items is
                 // not enchanted and validation is not necessary
-                resultItem = applyEnchantments(resultItem, combinedEnchants);
+                resultItem = applyEnchants(resultItem, combinedEnchants);
             }
 
             int healedDamage = damageBeforeRepair - damageAfterRepair;
@@ -195,11 +195,12 @@ public class AnvilUtils {
         // If both items are the same, they are being combined
         if (leftItem.getType() == rightItem.getType()) {
             // If at least one item is enchanted, the items are being "combine enchanted"
-            Map<Enchantment, Integer> leftEnchantments = getAllEnchantments(leftItem);
-            Map<Enchantment, Integer> rightEnchantments = getAllEnchantments(rightItem);
+            Map<Enchantment, Integer> leftEnchantments = getAllEnchants(leftItem);
+            Map<Enchantment, Integer> rightEnchantments = getAllEnchants(rightItem);
             boolean bothItemsEnchanted = !leftEnchantments.isEmpty() && !rightEnchantments.isEmpty();
+            boolean wastefulEnchant = isWastefulCombine(leftEnchantments, rightEnchantments);
             boolean leftItemEnchantable = isEnchantable(leftItem);
-            if (bothItemsEnchanted && leftItemEnchantable) {
+            if (!wastefulEnchant && bothItemsEnchanted && leftItemEnchantable) {
                 options.add(AnvilOperation.COMBINE_ENCHANT);
             }
 

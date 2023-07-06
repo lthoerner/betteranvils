@@ -161,7 +161,7 @@ public class EnchantUtils {
     }
 
     // Combines all the enchantments of an item, both standard and stored, into a single map
-    static Map<Enchantment, Integer> getAllEnchantments(ItemStack item) {
+    static Map<Enchantment, Integer> getAllEnchants(ItemStack item) {
         if (item == null) {
             return null;
         }
@@ -185,7 +185,7 @@ public class EnchantUtils {
     // Safely applies enchantments to an item, switching to stored enchantments if necessary
     // Returns the item if the enchantments were applied successfully, but null if there are
     // conflicting or otherwise illegal enchantments
-    static ItemStack applyEnchantments(@NotNull ItemStack item, @NotNull Map<Enchantment, Integer> enchantments) {
+    static ItemStack applyEnchants(@NotNull ItemStack item, @NotNull Map<Enchantment, Integer> enchantments) {
         // The item is cloned in order to check whether each enchantment is legal without modifying the original item
         ItemStack enchantedItem = item.clone();
 
@@ -266,8 +266,8 @@ public class EnchantUtils {
     // Note: If both items are the same, and the left item is not at full durability, this should be used
     // in conjunction with getCombineRepairResultDurability
     static @NotNull Map<Enchantment, Integer> combineEnchants(@NotNull ItemStack leftItem, @NotNull ItemStack rightItem) {
-        Map<Enchantment, Integer> leftEnchantments = getAllEnchantments(leftItem);
-        Map<Enchantment, Integer> rightEnchantments = getAllEnchantments(rightItem);
+        Map<Enchantment, Integer> leftEnchantments = getAllEnchants(leftItem);
+        Map<Enchantment, Integer> rightEnchantments = getAllEnchants(rightItem);
         Map<Enchantment, Integer> resultEnchantments = new HashMap<>();
 
         // Add the left enchantments
@@ -306,10 +306,47 @@ public class EnchantUtils {
         return resultEnchantments;
     }
 
+    // Determines whether combining the left enchantments with the right enchantments would be wasteful
+    // This is to prevent combining two items with the same enchantments, but different levels, to create an item with
+    // the same enchantments as one of the original items
+    static boolean isWastefulCombine(@NotNull Map<Enchantment, Integer> leftEnchants, @NotNull Map<Enchantment, Integer> rightEnchants) {
+        // If the left item has different enchantments than the right item, it is not wasteful
+        if (!leftEnchants.keySet().equals(rightEnchants.keySet())) {
+            return false;
+        }
+
+        boolean leftHasAtLeastOneHigherLevel = false;
+        boolean rightHasAtLeastOneHigherLevel = false;
+        for (Map.Entry<Enchantment, Integer> entry : leftEnchants.entrySet()) {
+            Enchantment enchantment = entry.getKey();
+            int leftLevel = entry.getValue();
+            int rightLevel = rightEnchants.get(enchantment);
+
+            if (leftLevel > rightLevel) {
+                leftHasAtLeastOneHigherLevel = true;
+            } else if (rightLevel > leftLevel) {
+                rightHasAtLeastOneHigherLevel = true;
+            } else if (leftLevel != enchantment.getMaxLevel()) {
+                // If the levels are the same and the enchantment is not at its
+                // max level already, the combine is not wasteful
+                return false;
+            }
+
+            // If both items have the higher level on at least one enchantment, the combine is not wasteful
+            if (leftHasAtLeastOneHigherLevel && rightHasAtLeastOneHigherLevel) {
+                return false;
+            }
+        }
+
+        // If both items have the same enchantments, but one has the higher level on every enchantment,
+        // the combine is wasteful
+        return true;
+    }
+
     // Calculates the total number of enchantment levels on an item
     // Used for anvil cost calculations
-    public static int totalLevels(@NotNull ItemStack item) {
-        Map<Enchantment, Integer> enchantments = getAllEnchantments(item);
+    static int totalLevels(@NotNull ItemStack item) {
+        Map<Enchantment, Integer> enchantments = getAllEnchants(item);
         int totalLevels = 0;
         for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
             totalLevels += entry.getValue();
