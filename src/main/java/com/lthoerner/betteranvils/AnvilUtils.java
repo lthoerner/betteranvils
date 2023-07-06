@@ -38,6 +38,12 @@ class AnvilAction {
     public final String renameText;
     public final ArrayList<AnvilActionOption> options;
 
+    // TODO: Make this configurable
+    static int MAX_ANVIL_COST = 30;
+    static int ENCHANT_COST_MULTIPLIER = 1;
+    static int DURABILITY_PER_LEVEL_COST = 100;
+    static int MIN_REPAIR_COST = 3;
+
     public AnvilAction(ItemStack leftItem, ItemStack rightItem, String renameText) {
         this.leftItem = leftItem;
         this.rightItem = rightItem;
@@ -49,12 +55,6 @@ class AnvilAction {
         if (options.isEmpty()) {
             return null;
         }
-
-        // TODO: Make this configurable
-        int MAX_ANVIL_COST = 30;
-        int ENCHANT_COST_MULTIPLIER = 1;
-        int DURABILITY_PER_LEVEL_COST = 100;
-        int MIN_REPAIR_COST = 3;
 
         boolean combineEnchant = options.contains(AnvilActionOption.COMBINE_ENCHANT);
         boolean bookEnchant = options.contains(AnvilActionOption.BOOK_ENCHANT);
@@ -73,7 +73,7 @@ class AnvilAction {
             resultItem = applyEnchantments(resultItem, combinedEnchants, true);
 
             // If enchantment has failed, the entire operation must be canceled to prevent the result item
-            // from being renamed or repaired and losing its enchantments
+            // from being losing its enchantments in the process of being renamed or repaired
             if (resultItem == null) {
                 return null;
             }
@@ -117,6 +117,14 @@ class AnvilAction {
         }
 
         if (rename) {
+            // If there has been some other operation performed on the item, and the result item is not any different
+            // from the left item prior to the rename operation, then no action should be performed
+            // This generally happens if an enchantment has reached its max level and combine enchanting
+            // will not increase the level of the enchantment
+            if (resultItem != null && resultItem.equals(leftItem)) {
+                return null;
+            }
+
             resultItem = cloneLeftItemIfResultNull(leftItem, resultItem);
 
             ItemMeta resultMeta = resultItem.getItemMeta();
@@ -128,6 +136,12 @@ class AnvilAction {
         }
 
         assert resultItem != null;
+        // If the result item is the same as the left item, the anvil does not take any action,
+        // in order to prevent the player from accidentally spending experience or materials on a useless action
+        if (resultItem.equals(leftItem)) {
+            return null;
+        }
+
         return new AnvilResult(resultItem, Math.min(MAX_ANVIL_COST, cost));
     }
 
@@ -143,6 +157,9 @@ class AnvilAction {
 }
 
 public class AnvilUtils {
+    // TODO: Make this configurable
+    static double REPAIR_MATERIAL_COST_MODIFIER = 1;
+
     // Determines the type of action that the anvil is performing based on the input items
     static @NotNull ArrayList<AnvilActionOption> getAnvilActionOptions(ItemStack leftItem, ItemStack rightItem, String renameText) {
         // If the left slot is empty, the anvil does nothing
@@ -351,9 +368,6 @@ public class AnvilUtils {
 
     // Gets the amount of repair material required to repair a given item from 0 to full durability
     static Integer repairMaterialCost(@NotNull ItemStack item) {
-        // TODO: Make this a configuration option
-        double REPAIR_MATERIAL_COST_MODIFIER = 1;
-
         Material damageableItemType = item.getType();
         String damageableItemName = damageableItemType.name();
 

@@ -33,7 +33,6 @@ public final class BetterAnvils extends JavaPlugin implements Listener {
         String renameText = anvilInventory.getRenameText();
 
         AnvilAction action = new AnvilAction(leftItem, rightItem, renameText);
-        System.out.println("OPTIONS: " + action.options);
         AnvilResult result = action.getResult();
 
         if (result != null) {

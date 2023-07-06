@@ -6,6 +6,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,6 +15,7 @@ import static com.lthoerner.betteranvils.AnvilUtils.isDamageable;
 public class EnchantUtils {
     // TODO: Make this configurable
     public static HashMap<Enchantment, Integer> MAX_ENCHANT_LEVELS = new HashMap<>(38);
+    public static ArrayList<Enchantment[]> INCOMPATIBLE_ENCHANTMENTS = new ArrayList<>(10);
     static {
         MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_ALL, 10);
         MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_UNDEAD, 10);
@@ -61,6 +63,49 @@ public class EnchantUtils {
 
         MAX_ENCHANT_LEVELS.put(Enchantment.BINDING_CURSE, 1);
         MAX_ENCHANT_LEVELS.put(Enchantment.VANISHING_CURSE, 1);
+
+        INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
+                Enchantment.DAMAGE_ALL,
+                Enchantment.DAMAGE_UNDEAD,
+                Enchantment.DAMAGE_ARTHROPODS,
+        });
+
+        INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
+                Enchantment.MENDING,
+                Enchantment.ARROW_INFINITE,
+        });
+
+        INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
+                Enchantment.MULTISHOT,
+                Enchantment.PIERCING,
+        });
+
+        INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
+                Enchantment.LOOT_BONUS_BLOCKS,
+                Enchantment.SILK_TOUCH,
+        });
+
+        INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
+                Enchantment.PROTECTION_ENVIRONMENTAL,
+                Enchantment.PROTECTION_FIRE,
+                Enchantment.PROTECTION_PROJECTILE,
+                Enchantment.PROTECTION_EXPLOSIONS,
+        });
+
+        INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
+                Enchantment.DEPTH_STRIDER,
+                Enchantment.FROST_WALKER,
+        });
+
+        INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
+                Enchantment.CHANNELING,
+                Enchantment.RIPTIDE,
+        });
+
+        INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
+                Enchantment.LOYALTY,
+                Enchantment.RIPTIDE,
+        });
     }
 
     // Combines all the enchantments of an item, both standard and stored, into a single map
@@ -97,32 +142,26 @@ public class EnchantUtils {
             stripEnchantments(enchantedItem);
         }
 
+        // If there are incompatible enchantments in the list, the operation is cancelled
+        if (hasIncompatibleEnchants(enchantments)) {
+            return null;
+        }
+
         for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
             Enchantment enchantment = entry.getKey();
-            int originalLevel = entry.getValue();
-
-            System.out.println("Attempting to apply " + enchantment + " at level " + originalLevel);
-
             // If the level is higher than the maximum allowed level for the enchantment, set it to the maximum
             int level = normalizeEnchantLevel(enchantment, entry.getValue());
-
-            System.out.println("Level normalized to " + level);
 
             // If the enchantment is allowed for the given item and does not conflict, add it
             // Otherwise, cancel the operation altogether by returning null
             // For some reason Enchantment.canEnchantItem() does not work for enchanted books,
             // so they must have an exception
-            // TODO: Exclude incompatible enchantments from books to prevent accidentally making books useless
             if (enchantment.canEnchantItem(enchantedItem) || isBook(enchantedItem)) {
                 enchantedItem.addUnsafeEnchantment(enchantment, level);
-                System.out.println("Successfully applied enchantment.");
             } else {
-                System.out.println("Enchantment " + enchantment + " illegal for item " + enchantedItem + ".");
                 return null;
             }
         }
-
-        System.out.println("Successfully applied all enchantments to " + enchantedItem + ".");
 
         // If the item is an enchanted book, this converts the standard enchantments to stored enchantments
         storeEnchantsInBook(enchantedItem);
@@ -239,7 +278,7 @@ public class EnchantUtils {
             return false;
         }
 
-        // TODO: Exclude non-enchantable tools
+        // TODO: Exclude non-enchantable tools (are there any?)
         return isDamageable(item) || isBook(item);
     }
 
@@ -257,5 +296,22 @@ public class EnchantUtils {
     // depending on whether the given level exceeds the maximum
     static int normalizeEnchantLevel(Enchantment enchantment, int level) {
         return Math.min(level, MAX_ENCHANT_LEVELS.get(enchantment));
+    }
+
+    // Determines whether a set of enchantments contains incompatible enchantments
+    static boolean hasIncompatibleEnchants(Map<Enchantment, Integer> enchantments) {
+        for (Enchantment[] incompatibleEnchantments : INCOMPATIBLE_ENCHANTMENTS) {
+            int count = 0;
+            for (Enchantment enchantment : incompatibleEnchantments) {
+                if (enchantments.containsKey(enchantment)) {
+                    count++;
+                    if (count > 1) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 }
