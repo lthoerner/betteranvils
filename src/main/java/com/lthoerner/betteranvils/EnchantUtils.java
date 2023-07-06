@@ -183,8 +183,9 @@ class EnchantUtils {
 
     // Safely applies enchantments to an item, switching to stored enchantments if necessary
     // Throws an exception if there are conflicting or otherwise illegal enchantments
-    static ItemStack applyEnchants(@NotNull ItemStack item, @NotNull Map<Enchantment, Integer> enchantments) throws IllegalArgumentException {
+    static @NotNull ItemStack applyEnchants(@NotNull ItemStack item, @NotNull Map<Enchantment, Integer> enchantments) throws IllegalArgumentException {
         // The item is cloned in order to check whether each enchantment is legal without modifying the original item
+        // TODO: Is there any way to do this without cloning the item?
         ItemStack enchantedItem = item.clone();
 
         // Reset the enchantments on the item before adding the new ones
@@ -193,7 +194,8 @@ class EnchantUtils {
         // If there are incompatible enchantments in the list, the operation is cancelled
         // TODO: Maybe replace this with Enchantment.conflictsWith()?
         if (hasIncompatibleEnchants(enchantments)) {
-            return null;
+            throw new IllegalArgumentException("Incompatible enchantments detected for item "
+                    + enchantedItem.getType().name());
         }
 
         Map<Enchantment, Integer> normalizedEnchantments = new HashMap<>();

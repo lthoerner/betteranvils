@@ -24,7 +24,7 @@ material-repair-cost-multiplier: 0.5
 
 # Whether to use the vanilla max level configuration
 # If this is set to true, then the max level configuration below will be ignored
-use-vanilla-max-levels: false
+use-vanilla-max-levels: true
 
 # The maximum level allowed for each enchantment
 # NOTE: Enchantments with a max level of 1 do not do anything different at higher levels,
