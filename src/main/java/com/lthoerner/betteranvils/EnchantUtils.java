@@ -1,10 +1,12 @@
 package com.lthoerner.betteranvils;
 
 import org.bukkit.Material;
+import org.bukkit.configuration.Configuration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -14,56 +16,105 @@ import java.util.Map;
 import static com.lthoerner.betteranvils.AnvilUtils.isDamageable;
 
 public class EnchantUtils {
-    // TODO: Make this configurable
     public static HashMap<Enchantment, Integer> MAX_ENCHANT_LEVELS = new HashMap<>(38);
     public static ArrayList<Enchantment[]> INCOMPATIBLE_ENCHANTMENTS = new ArrayList<>(10);
     static {
-        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_ALL, 10);
-        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_UNDEAD, 10);
-        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_ARTHROPODS, 10);
-        MAX_ENCHANT_LEVELS.put(Enchantment.FIRE_ASPECT, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.KNOCKBACK, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.LOOT_BONUS_MOBS, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.SWEEPING_EDGE, 5);
+        Configuration config = JavaPlugin.getPlugin(BetterAnvils.class).getConfig();
+        boolean USE_VANILLA_MAX_LEVELS = config.getBoolean("use-vanilla-max-levels");
 
-        MAX_ENCHANT_LEVELS.put(Enchantment.IMPALING, 10);
-        MAX_ENCHANT_LEVELS.put(Enchantment.RIPTIDE, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.LOYALTY, 5);
+        int SHARPNESS_LEVEL = USE_VANILLA_MAX_LEVELS ? 5 : config.getInt("max-level.sharpness");
+        int SMITE_LEVEL = USE_VANILLA_MAX_LEVELS ? 5 : config.getInt("max-level.smite");
+        int BANE_OF_ARTHROPODS_LEVEL = USE_VANILLA_MAX_LEVELS ? 5 : config.getInt("max-level.bane-of-arthropods");
+        int FIRE_ASPECT_LEVEL = USE_VANILLA_MAX_LEVELS ? 2 : config.getInt("max-level.fire-aspect");
+        int KNOCKBACK_LEVEL = USE_VANILLA_MAX_LEVELS ? 2 : config.getInt("max-level.knockback");
+        int LOOTING_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.looting");
+        int SWEEPING_EDGE_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.sweeping-edge");
 
-        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_DAMAGE, 10);
-        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_FIRE, 1);
-        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_KNOCKBACK, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_INFINITE, 1);
+        int IMPALING_LEVEL = USE_VANILLA_MAX_LEVELS ? 5 : config.getInt("max-level.impaling");
+        int RIPTIDE_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.riptide");
+        int LOYALTY_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.loyalty");
 
-        MAX_ENCHANT_LEVELS.put(Enchantment.PIERCING, 8);
-        MAX_ENCHANT_LEVELS.put(Enchantment.QUICK_CHARGE, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.MULTISHOT, 1);
+        int POWER_LEVEL = USE_VANILLA_MAX_LEVELS ? 5 : config.getInt("max-level.power");
+        int FLAME_LEVEL = USE_VANILLA_MAX_LEVELS ? 1 : config.getInt("max-level.flame");
+        int PUNCH_LEVEL = USE_VANILLA_MAX_LEVELS ? 2 : config.getInt("max-level.punch");
+        int INFINITY_LEVEL = USE_VANILLA_MAX_LEVELS ? 1 : config.getInt("max-level.infinity");
 
-        MAX_ENCHANT_LEVELS.put(Enchantment.DIG_SPEED, 10);
-        MAX_ENCHANT_LEVELS.put(Enchantment.LOOT_BONUS_BLOCKS, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.SILK_TOUCH, 1);
+        int PIERCING_LEVEL = USE_VANILLA_MAX_LEVELS ? 4 : config.getInt("max-level.piercing");
+        int QUICK_CHARGE_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.quick-charge");
+        int MULTISHOT_LEVEL = USE_VANILLA_MAX_LEVELS ? 1 : config.getInt("max-level.multishot");
 
-        MAX_ENCHANT_LEVELS.put(Enchantment.LURE, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.LUCK, 5);
+        int EFFICIENCY_LEVEL = USE_VANILLA_MAX_LEVELS ? 5 : config.getInt("max-level.efficiency");
+        int SILK_TOUCH_LEVEL = USE_VANILLA_MAX_LEVELS ? 1 : config.getInt("max-level.silk-touch");
+        int FORTUNE_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.fortune");
 
-        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_ENVIRONMENTAL, 8);
-        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_FIRE, 8);
-        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_PROJECTILE, 8);
-        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_EXPLOSIONS, 8);
-        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_FALL, 8);
-        MAX_ENCHANT_LEVELS.put(Enchantment.THORNS, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.SOUL_SPEED, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.SWIFT_SNEAK, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.DEPTH_STRIDER, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.OXYGEN, 5);
-        MAX_ENCHANT_LEVELS.put(Enchantment.WATER_WORKER, 1);
-        MAX_ENCHANT_LEVELS.put(Enchantment.FROST_WALKER, 5);
+        int LURE_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.lure");
+        int LUCK_OF_THE_SEA_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.luck-of-the-sea");
 
-        MAX_ENCHANT_LEVELS.put(Enchantment.DURABILITY, 10);
-        MAX_ENCHANT_LEVELS.put(Enchantment.MENDING, 1);
+        int PROTECTION_LEVEL = USE_VANILLA_MAX_LEVELS ? 4 : config.getInt("max-level.protection");
+        int FIRE_PROTECTION_LEVEL = USE_VANILLA_MAX_LEVELS ? 4 : config.getInt("max-level.fire-protection");
+        int PROJECTILE_PROTECTION_LEVEL = USE_VANILLA_MAX_LEVELS ? 4 : config.getInt("max-level.projectile-protection");
+        int BLAST_PROTECTION_LEVEL = USE_VANILLA_MAX_LEVELS ? 4 : config.getInt("max-level.blast-protection");
+        int FEATHER_FALLING_LEVEL = USE_VANILLA_MAX_LEVELS ? 4 : config.getInt("max-level.feather-falling");
+        int THORNS_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.thorns");
+        int SOUL_SPEED_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.soul-speed");
+        int SWIFT_SNEAK_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.swift-sneak");
+        int DEPTH_STRIDER_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.depth-strider");
+        int RESPIRATION_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.respiration");
+        int AQUA_AFFINITY_LEVEL = USE_VANILLA_MAX_LEVELS ? 1 : config.getInt("max-level.aqua-affinity");
+        int FROST_WALKER_LEVEL = USE_VANILLA_MAX_LEVELS ? 2 : config.getInt("max-level.frost-walker");
 
-        MAX_ENCHANT_LEVELS.put(Enchantment.BINDING_CURSE, 1);
-        MAX_ENCHANT_LEVELS.put(Enchantment.VANISHING_CURSE, 1);
+        int UNBREAKING_LEVEL = USE_VANILLA_MAX_LEVELS ? 3 : config.getInt("max-level.unbreaking");
+        int MENDING_LEVEL = USE_VANILLA_MAX_LEVELS ? 1 : config.getInt("max-level.mending");
+
+        int CURSE_OF_BINDING_LEVEL = USE_VANILLA_MAX_LEVELS ? 1 : config.getInt("max-level.curse-of-binding");
+        int CURSE_OF_VANISHING_LEVEL = USE_VANILLA_MAX_LEVELS ? 1 : config.getInt("max-level.curse-of-vanishing");
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_ALL, SHARPNESS_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_UNDEAD, SMITE_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.DAMAGE_ARTHROPODS, BANE_OF_ARTHROPODS_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.FIRE_ASPECT, FIRE_ASPECT_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.KNOCKBACK, KNOCKBACK_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.LOOT_BONUS_MOBS, LOOTING_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.SWEEPING_EDGE, SWEEPING_EDGE_LEVEL);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.IMPALING, IMPALING_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.RIPTIDE, RIPTIDE_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.LOYALTY, LOYALTY_LEVEL);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_DAMAGE, POWER_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_FIRE, FLAME_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_KNOCKBACK, PUNCH_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.ARROW_INFINITE, INFINITY_LEVEL);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.PIERCING, PIERCING_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.QUICK_CHARGE, QUICK_CHARGE_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.MULTISHOT, MULTISHOT_LEVEL);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.DIG_SPEED, EFFICIENCY_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.LOOT_BONUS_BLOCKS, FORTUNE_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.SILK_TOUCH, SILK_TOUCH_LEVEL);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.LURE, LURE_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.LUCK, LUCK_OF_THE_SEA_LEVEL);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_ENVIRONMENTAL, PROTECTION_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_FIRE, FIRE_PROTECTION_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_PROJECTILE, PROJECTILE_PROTECTION_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_EXPLOSIONS, BLAST_PROTECTION_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.PROTECTION_FALL, FEATHER_FALLING_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.THORNS, THORNS_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.SOUL_SPEED, SOUL_SPEED_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.SWIFT_SNEAK, SWIFT_SNEAK_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.DEPTH_STRIDER, DEPTH_STRIDER_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.OXYGEN, RESPIRATION_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.WATER_WORKER, AQUA_AFFINITY_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.FROST_WALKER, FROST_WALKER_LEVEL);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.DURABILITY, UNBREAKING_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.MENDING, MENDING_LEVEL);
+
+        MAX_ENCHANT_LEVELS.put(Enchantment.BINDING_CURSE, CURSE_OF_BINDING_LEVEL);
+        MAX_ENCHANT_LEVELS.put(Enchantment.VANISHING_CURSE, CURSE_OF_VANISHING_LEVEL);
 
         INCOMPATIBLE_ENCHANTMENTS.add(new Enchantment[] {
                 Enchantment.DAMAGE_ALL,

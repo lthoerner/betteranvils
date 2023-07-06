@@ -1,0 +1,78 @@
+# The absolute maximum level cost for all anvil operations
+max-cost: 30
+
+# The multiplier of cost per enchantment level
+# For example, if enchant-cost-multiplier is 2, then adding a Fortune V book to a pickaxe will cost 10 levels
+enchant-cost-multiplier: 1
+
+# The flat cost of renaming an item
+rename-cost: 1
+
+# The amount of durability that is repaired per level cost
+# For example, if durability-per-level is 100, then a pickaxe with 700/1000 durability will cost 3 levels to repair
+durability-per-level: 100
+
+# The minimum cost to repair an item, regardless of durability
+# Higher values tend to punish repairs of cheap items such as stone tools
+min-repair-cost: 3
+
+# The amount of materials required to repair an item, based on how many items it took to craft the item
+# For example, if repair-materials-per-item is 1, then a diamond chestplate will require 8 diamonds to repair fully,
+# whereas if repair-materials-per-item is 0.5, then a diamond chestplate will require 4 diamonds to repair fully
+# This should be below 1 if you want a repair to be more cost-effective than crafting a new item
+material-repair-cost-multiplier: 0.5
+
+# Whether to use the vanilla max level configuration
+# If this is set to true, then the max level configuration below will be ignored
+use-vanilla-max-levels: false
+
+# The maximum level allowed for each enchantment
+# NOTE: Enchantments with a max level of 1 do not do anything different at higher levels,
+# and some enchantments behave strangely at higher levels (quick charge, frost walker, etc.)
+# Mess with these at your own risk
+max-level.sharpness: 10
+max-level.smite: 10
+max-level.bane-of-arthropods: 10
+max-level.knockback: 5
+max-level.fire-aspect: 5
+max-level.looting: 5
+max-level.sweeping-edge: 5
+
+max-level.impaling: 10
+max-level.riptide: 5
+max-level.loyalty: 5
+
+max-level.power: 10
+max-level.flame: 1
+max-level.punch: 5
+max-level.infinity: 1
+
+max-level.piercing: 8
+max-level.quick-charge: 5
+max-level.multishot: 1
+
+max-level.efficiency: 10
+max-level.fortune: 5
+max-level.silk-touch: 1
+
+max-level.lure: 5
+max-level.luck-of-the-sea: 5
+
+max-level.protection: 8
+max-level.fire-protection: 8
+max-level.projectile-protection: 8
+max-level.blast-protection: 8
+max-level.feather-falling: 8
+max-level.thorns: 5
+max-level.soul-speed: 5
+max-level.swift-sneak: 5
+max-level.depth-strider: 5
+max-level.respiration: 5
+max-level.aqua-affinity: 1
+max-level.frost-walker: 4
+
+max-level.unbreaking: 10
+max-level.mending: 1
+
+max-level.curse-of-binding: 1
+max-level.curse-of-vanishing: 1
