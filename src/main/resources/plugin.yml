@@ -1,4 +1,4 @@
 name: BetterAnvils
-version: '0.1.0'
+version: '0.1.1'
 main: com.lthoerner.betteranvils.BetterAnvils
 api-version: '1.20'
