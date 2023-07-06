@@ -1,12 +1,12 @@
 package com.lthoerner.betteranvils;
 
 import org.bukkit.Material;
+import org.bukkit.configuration.Configuration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -35,10 +35,12 @@ enum DamageableMaterial {
 }
 
 class AnvilAction {
+    final Plugin plugin;
+
     final ItemStack leftItem;
     final ItemStack rightItem;
     final String renameText;
-    final @NotNull ArrayList<AnvilOperation> options;
+    final @NotNull ArrayList<AnvilOperation> operations;
 
     final int MAX_COST;
     final double ENCHANT_COST_MULTIPLIER;
@@ -46,30 +48,34 @@ class AnvilAction {
     final int DURABILITY_PER_LEVEL;
     final int MIN_REPAIR_COST;
 
-    public AnvilAction(ItemStack leftItem, ItemStack rightItem, String renameText, Plugin plugin) {
+    AnvilAction(ItemStack leftItem, ItemStack rightItem, String renameText) {
+        this.plugin = BetterAnvils.getInstance();
+
         this.leftItem = leftItem;
         this.rightItem = rightItem;
         this.renameText = renameText;
         // An AnvilAction consists of one or more AnvilOperations
-        this.options = AnvilUtils.getAnvilOperations(leftItem, rightItem, renameText);
+        this.operations = AnvilUtils.getAnvilOperations(leftItem, rightItem, renameText);
 
-        this.MAX_COST = plugin.getConfig().getInt("max-cost");
-        this.ENCHANT_COST_MULTIPLIER = plugin.getConfig().getDouble("enchant-cost-multiplier");
-        this.RENAME_COST = plugin.getConfig().getInt("rename-cost");
-        this.DURABILITY_PER_LEVEL = plugin.getConfig().getInt("durability-per-level");
-        this.MIN_REPAIR_COST = plugin.getConfig().getInt("min-repair-cost");
+        Configuration config = plugin.getConfig();
+
+        this.MAX_COST = config.getInt("max-cost");
+        this.ENCHANT_COST_MULTIPLIER = config.getDouble("enchant-cost-multiplier");
+        this.RENAME_COST = config.getInt("rename-cost");
+        this.DURABILITY_PER_LEVEL = config.getInt("durability-per-level");
+        this.MIN_REPAIR_COST = config.getInt("min-repair-cost");
     }
 
-    public AnvilResult getResult() {
-        if (options.isEmpty()) {
+    AnvilResult getResult() {
+        if (operations.isEmpty()) {
             return null;
         }
 
-        boolean combineEnchant = options.contains(AnvilOperation.COMBINE_ENCHANT);
-        boolean bookEnchant = options.contains(AnvilOperation.BOOK_ENCHANT);
-        boolean combineRepair = options.contains(AnvilOperation.COMBINE_REPAIR);
-        boolean materialRepair = options.contains(AnvilOperation.MATERIAL_REPAIR);
-        boolean rename = options.contains(AnvilOperation.RENAME);
+        boolean combineEnchant = operations.contains(AnvilOperation.COMBINE_ENCHANT);
+        boolean bookEnchant = operations.contains(AnvilOperation.BOOK_ENCHANT);
+        boolean combineRepair = operations.contains(AnvilOperation.COMBINE_REPAIR);
+        boolean materialRepair = operations.contains(AnvilOperation.MATERIAL_REPAIR);
+        boolean rename = operations.contains(AnvilOperation.RENAME);
 
         ItemStack resultItem = null;
         int cost = 0;
@@ -79,11 +85,12 @@ class AnvilAction {
             resultItem = cloneLeftItemIfResultNull(leftItem, null);
 
             Map<Enchantment, Integer> combinedEnchants = combineEnchants(leftItem, rightItem);
-            resultItem = applyEnchants(resultItem, combinedEnchants);
-
-            // If enchantment has failed, the entire operation must be canceled to prevent the result item
-            // from being losing its enchantments in the process of being renamed or repaired
-            if (resultItem == null) {
+            try {
+                resultItem = applyEnchants(resultItem, combinedEnchants);
+            } catch (IllegalArgumentException e) {
+                // If enchantment has failed, the entire operation must be canceled to prevent the result item
+                // from being losing its enchantments in the process of being renamed or repaired
+                plugin.getLogger().warning(e.getMessage());
                 return null;
             }
 
@@ -102,7 +109,14 @@ class AnvilAction {
             if (combineRepair) {
                 damageAfterRepair = AnvilUtils.combineDamage(leftItem, rightItem);
             } else {
-                damageAfterRepair = AnvilUtils.materialRepairDamage(leftItem, rightItem.getAmount());
+                try {
+                    damageAfterRepair = AnvilUtils.materialRepairDamage(leftItem, rightItem.getAmount());
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().severe(e.getMessage());
+                    plugin.getLogger().severe("This is a bug in BetterAnvils. Please report it at " +
+                            "https://github.com/lthoerner/betteranvils.");
+                    return null;
+                }
             }
 
             Damageable resultMeta = (Damageable) resultItem.getItemMeta();
@@ -114,10 +128,17 @@ class AnvilAction {
             // their enchantments must be combined nonetheless
             if (combineRepair) {
                 Map<Enchantment, Integer> combinedEnchants = combineEnchants(leftItem, rightItem);
-                // This should never be null, because if two items are being combine repaired without having already
+                // This should never fail, because if two items are being combine repaired without having already
                 // gone through the validation process in the combineEnchant/bookEnchant section, one of the items is
                 // not enchanted and validation is not necessary
-                resultItem = applyEnchants(resultItem, combinedEnchants);
+                try {
+                    resultItem = applyEnchants(resultItem, combinedEnchants);
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().severe(e.getMessage());
+                    plugin.getLogger().severe("This is a bug in BetterAnvils. Please report it at " +
+                            "https://github.com/lthoerner/betteranvils.");
+                    return null;
+                }
             }
 
             int healedDamage = damageBeforeRepair - damageAfterRepair;
@@ -154,7 +175,7 @@ class AnvilAction {
         return new AnvilResult(resultItem, Math.min(MAX_COST, cost));
     }
 
-    // This function is used to ensure that the AnvilActionOptions can be applied both independently and
+    // This function is used to ensure that the AnvilOperations can be applied both independently and
     // in conjunction by forcing the result to be the left item unless it is already instantiated
     static @NotNull ItemStack cloneLeftItemIfResultNull(@NotNull ItemStack leftItem, ItemStack resultItem) {
         if (resultItem == null) {
@@ -165,9 +186,9 @@ class AnvilAction {
     }
 }
 
-public class AnvilUtils {
-    static double MATERIAL_REPAIR_COST_MULTIPLIER =
-            JavaPlugin.getPlugin(BetterAnvils.class).getConfig().getDouble("material-repair-cost-multiplier");
+class AnvilUtils {
+    static final double MATERIAL_REPAIR_COST_MULTIPLIER =
+            BetterAnvils.getInstance().getConfig().getDouble("material-repair-cost-multiplier");
 
     // Determines the type of operations that the anvil is performing based on the input items
     static @NotNull ArrayList<AnvilOperation> getAnvilOperations(ItemStack leftItem, ItemStack rightItem, String renameText) {
@@ -176,7 +197,7 @@ public class AnvilUtils {
             return new ArrayList<>();
         }
 
-        ArrayList<AnvilOperation> options = new ArrayList<>();
+        ArrayList<AnvilOperation> operations = new ArrayList<>();
 
         ItemMeta leftMeta = leftItem.getItemMeta();
         assert leftMeta != null;
@@ -184,12 +205,12 @@ public class AnvilUtils {
 
         // If there is a new name specified for the item, the anvil is renaming the item
         if (renameText != null && !renameText.equals(leftName)) {
-            options.add(AnvilOperation.RENAME);
+            operations.add(AnvilOperation.RENAME);
         }
 
         // If there is no item in the right slot, the anvil only renames the item and does nothing else
         if (rightItem == null) {
-            return options;
+            return operations;
         }
 
         // If both items are the same, they are being combined
@@ -201,12 +222,12 @@ public class AnvilUtils {
             boolean wastefulEnchant = isWastefulCombine(leftEnchantments, rightEnchantments);
             boolean leftItemEnchantable = isEnchantable(leftItem);
             if (!wastefulEnchant && bothItemsEnchanted && leftItemEnchantable) {
-                options.add(AnvilOperation.COMBINE_ENCHANT);
+                operations.add(AnvilOperation.COMBINE_ENCHANT);
             }
 
             // If the items are damageable and are not at full durability, they are being "combine repaired"
             if (isDamageable(leftItem) && isDamaged(leftItem)) {
-                options.add(AnvilOperation.COMBINE_REPAIR);
+                operations.add(AnvilOperation.COMBINE_REPAIR);
             }
         }
 
@@ -214,22 +235,22 @@ public class AnvilUtils {
         // This exception needs to exist because combine enchanting and book enchanting are mutually exclusive,
         // mostly to avoid duplicate level costs
         if (rightItem.getType() == Material.ENCHANTED_BOOK && leftItem.getType() != Material.ENCHANTED_BOOK) {
-            options.add(AnvilOperation.BOOK_ENCHANT);
+            operations.add(AnvilOperation.BOOK_ENCHANT);
         }
 
         // If the left item is repairable, and the right item is a material used to repair it, it is being "material repaired"
         if (materialRepairsItem(leftItem, rightItem)) {
-            options.add(AnvilOperation.MATERIAL_REPAIR);
+            operations.add(AnvilOperation.MATERIAL_REPAIR);
         }
 
-        // If no options other than RENAME are specified, and there is an item in the right-hand slot, the rename
+        // If no operations other than RENAME are specified, and there is an item in the right-hand slot, the rename
         // operation would consume the right item unnecessarily, hence this condition
-        // All these conditions would automatically be true if options only has one element at this point
-        if (options.size() == 1) {
-            options.remove(AnvilOperation.RENAME);
+        // All these conditions would automatically be true if operations only has one element at this point
+        if (operations.size() == 1) {
+            operations.remove(AnvilOperation.RENAME);
         }
 
-        return options;
+        return operations;
     }
 
     // Gets the result of combine repairing two items in an anvil, represented by the amount of damage rather than
@@ -259,14 +280,14 @@ public class AnvilUtils {
     }
 
     // Gets the damage value of an item being material repaired, given the amount of materials provided
-    static int materialRepairDamage(@NotNull ItemStack item, int materialCount) {
+    static int materialRepairDamage(@NotNull ItemStack item, int materialCount) throws IllegalArgumentException {
         Damageable itemMeta = (Damageable) item.getItemMeta();
         assert itemMeta != null;
 
         int maxDurability = item.getType().getMaxDurability();
         int remainingDurability = maxDurability - itemMeta.getDamage();
-        Integer fullRepairMaterialCost = repairMaterialCost(item);
-        assert fullRepairMaterialCost != null;
+
+        int fullRepairMaterialCost = repairMaterialCost(item);
 
         int durabilityPerMaterial = maxDurability / fullRepairMaterialCost;
         int materialAddedDurability = materialCount * durabilityPerMaterial;
@@ -379,7 +400,7 @@ public class AnvilUtils {
     }
 
     // Gets the amount of repair material required to repair a given item from 0 to full durability
-    static Integer repairMaterialCost(@NotNull ItemStack item) {
+    static int repairMaterialCost(@NotNull ItemStack item) throws IllegalArgumentException {
         Material damageableItemType = item.getType();
         String damageableItemName = damageableItemType.name();
 
@@ -408,7 +429,8 @@ public class AnvilUtils {
         } else if (damageableItemName.endsWith("_HOE")) {
             materialCount = 2;
         } else {
-            return null;
+            throw new IllegalArgumentException(
+                    "Item " + damageableItemType.name() + " has no corresponding repair material");
         }
 
         return (int) (MATERIAL_REPAIR_COST_MULTIPLIER * materialCount);
@@ -416,10 +438,10 @@ public class AnvilUtils {
 }
 
 class AnvilResult {
-    public final @NotNull ItemStack resultItem;
-    public final int cost;
+    final @NotNull ItemStack resultItem;
+    final int cost;
 
-    public AnvilResult(@NotNull ItemStack resultItem, int cost) {
+    AnvilResult(@NotNull ItemStack resultItem, int cost) {
         this.resultItem = resultItem;
         this.cost = cost;
     }

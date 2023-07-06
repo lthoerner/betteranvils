@@ -6,7 +6,6 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -15,11 +14,11 @@ import java.util.Map;
 
 import static com.lthoerner.betteranvils.AnvilUtils.isDamageable;
 
-public class EnchantUtils {
-    public static HashMap<Enchantment, Integer> MAX_ENCHANT_LEVELS = new HashMap<>(38);
-    public static ArrayList<Enchantment[]> INCOMPATIBLE_ENCHANTMENTS = new ArrayList<>(10);
+class EnchantUtils {
+    static HashMap<Enchantment, Integer> MAX_ENCHANT_LEVELS = new HashMap<>(38);
+    static ArrayList<Enchantment[]> INCOMPATIBLE_ENCHANTMENTS = new ArrayList<>(10);
     static {
-        Configuration config = JavaPlugin.getPlugin(BetterAnvils.class).getConfig();
+        Configuration config = BetterAnvils.getInstance().getConfig();
         boolean USE_VANILLA_MAX_LEVELS = config.getBoolean("use-vanilla-max-levels");
 
         int SHARPNESS_LEVEL = USE_VANILLA_MAX_LEVELS ? 5 : config.getInt("max-level.sharpness");
@@ -183,9 +182,8 @@ public class EnchantUtils {
     }
 
     // Safely applies enchantments to an item, switching to stored enchantments if necessary
-    // Returns the item if the enchantments were applied successfully, but null if there are
-    // conflicting or otherwise illegal enchantments
-    static ItemStack applyEnchants(@NotNull ItemStack item, @NotNull Map<Enchantment, Integer> enchantments) {
+    // Throws an exception if there are conflicting or otherwise illegal enchantments
+    static ItemStack applyEnchants(@NotNull ItemStack item, @NotNull Map<Enchantment, Integer> enchantments) throws IllegalArgumentException {
         // The item is cloned in order to check whether each enchantment is legal without modifying the original item
         ItemStack enchantedItem = item.clone();
 
@@ -193,26 +191,32 @@ public class EnchantUtils {
         stripEnchantments(enchantedItem);
 
         // If there are incompatible enchantments in the list, the operation is cancelled
+        // TODO: Maybe replace this with Enchantment.conflictsWith()?
         if (hasIncompatibleEnchants(enchantments)) {
             return null;
         }
+
+        Map<Enchantment, Integer> normalizedEnchantments = new HashMap<>();
 
         for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
             Enchantment enchantment = entry.getKey();
             // If the level is higher than the maximum allowed level for the enchantment, set it to the maximum
             int level = normalizeEnchantLevel(enchantment, entry.getValue());
+            normalizedEnchantments.put(enchantment, level);
 
-            // If the enchantment is allowed for the given item and does not conflict, add it
-            // Otherwise, cancel the operation altogether by returning null
+            // If the enchantment is allowed for the given item and does not conflict, check the next enchantment
+            // Otherwise, cancel the operation altogether by throwing an exception
             // For some reason Enchantment.canEnchantItem() does not work for enchanted books,
             // so they must have an exception
-            if (enchantment.canEnchantItem(enchantedItem) || isBook(enchantedItem)) {
-                enchantedItem.addUnsafeEnchantment(enchantment, level);
-            } else {
-                return null;
+            if (!enchantment.canEnchantItem(enchantedItem) && !isBook(enchantedItem)) {
+                // TODO: Figure out non-deprecated alternative for Enchantment.getName()
+                throw new IllegalArgumentException("Illegal enchantment " + enchantment + " for item "
+                        + enchantedItem.getType().name());
             }
         }
 
+        // If all the enchantments are legal, apply them to the item
+        enchantedItem.addUnsafeEnchantments(normalizedEnchantments);
         // If the item is an enchanted book, this converts the standard enchantments to stored enchantments
         storeEnchantsInBook(enchantedItem);
 
@@ -326,9 +330,11 @@ public class EnchantUtils {
                 leftHasAtLeastOneHigherLevel = true;
             } else if (rightLevel > leftLevel) {
                 rightHasAtLeastOneHigherLevel = true;
-            } else if (leftLevel != enchantment.getMaxLevel()) {
-                // If the levels are the same and the enchantment is not at its
-                // max level already, the combine is not wasteful
+            }
+
+            // If the levels are the same and the enchantment is not at its
+            // max level already, the combine is not wasteful
+            if (leftLevel == rightLevel && leftLevel != MAX_ENCHANT_LEVELS.get(enchantment)) {
                 return false;
             }
 
