@@ -14,6 +14,7 @@ experience for players.
 or levels on useless operations
 
 ## Installation
-Download **BetterAnvils.jar** from the `releases/` directory and place it in your server's `plugins/` directory.
+Download `BetterAnvils.jar` from the latest [GitHub release](https://github.com/lthoerner/betteranvils/releases)
+and place it in your server's `plugins/` directory.
 Once the plugin is installed, you can configure it by editing the `config.yml` file in the `plugins/BetterAnvils/`
 directory.
