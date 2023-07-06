@@ -200,11 +200,18 @@ class EnchantUtils {
 
         Map<Enchantment, Integer> normalizedEnchantments = new HashMap<>();
 
+        boolean atLeastOneEnchantmentLevelNotDecreased = false;
         for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
             Enchantment enchantment = entry.getKey();
+            int originalLevel = entry.getValue();
             // If the level is higher than the maximum allowed level for the enchantment, set it to the maximum
-            int level = normalizeEnchantLevel(enchantment, entry.getValue());
-            normalizedEnchantments.put(enchantment, level);
+            int normalizedLevel = normalizeEnchantLevel(enchantment, entry.getValue());
+            normalizedEnchantments.put(enchantment, normalizedLevel);
+
+            // If the level was not decreased via normalization, set the flag
+            if (normalizedLevel == originalLevel) {
+                atLeastOneEnchantmentLevelNotDecreased = true;
+            }
 
             // If the enchantment is allowed for the given item and does not conflict, check the next enchantment
             // Otherwise, cancel the operation altogether by throwing an exception
@@ -215,6 +222,12 @@ class EnchantUtils {
                 throw new IllegalArgumentException("Illegal enchantment " + enchantment + " for item "
                         + enchantedItem.getType().name());
             }
+        }
+
+        // If all the enchantments were decreased via normalization, cancel the operation
+        if (!atLeastOneEnchantmentLevelNotDecreased) {
+            throw new IllegalArgumentException("All enchantment levels above level cap for item "
+                    + enchantedItem.getType().name());
         }
 
         // If all the enchantments are legal, apply them to the item
