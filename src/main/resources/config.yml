@@ -1,3 +1,10 @@
+# Whether to show non-critical warnings, such as an alert that the two enchantments are incompatible
+show-warnings: false
+
+# Whether to show critical errors indicating that there are logic bugs in the plugin
+# It is highly recommended to keep this enabled unless you have a compelling reason not to
+show-errors: true
+
 # The absolute maximum level cost for all anvil operations
 max-cost: 30
 

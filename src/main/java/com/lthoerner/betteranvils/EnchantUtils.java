@@ -1,5 +1,6 @@
 package com.lthoerner.betteranvils;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.enchantments.Enchantment;
@@ -183,6 +184,7 @@ class EnchantUtils {
 
     // Safely applies enchantments to an item, switching to stored enchantments if necessary
     // Throws an exception if there are conflicting or otherwise illegal enchantments
+    // TODO: Reconcile some of the logic in this method with isWastefulCombine()
     static @NotNull ItemStack applyEnchants(@NotNull ItemStack item, @NotNull Map<Enchantment, Integer> enchantments) throws IllegalArgumentException {
         // The item is cloned in order to check whether each enchantment is legal without modifying the original item
         // TODO: Is there any way to do this without cloning the item?
@@ -216,7 +218,7 @@ class EnchantUtils {
             // If the enchantment is allowed for the given item and does not conflict, check the next enchantment
             // Otherwise, cancel the operation altogether by throwing an exception
             // For some reason Enchantment.canEnchantItem() does not work for enchanted books,
-            // so they must have an exception
+            // so they must have a special case
             if (!enchantment.canEnchantItem(enchantedItem) && !isBook(enchantedItem)) {
                 // TODO: Figure out non-deprecated alternative for Enchantment.getName()
                 throw new IllegalArgumentException("Illegal enchantment " + enchantment + " for item "

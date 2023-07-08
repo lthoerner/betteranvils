@@ -42,6 +42,8 @@ class AnvilAction {
     final String renameText;
     final @NotNull ArrayList<AnvilOperation> operations;
 
+    final boolean SHOW_WARNINGS;
+    final boolean SHOW_ERRORS;
     final int MAX_COST;
     final double ENCHANT_COST_MULTIPLIER;
     final int RENAME_COST;
@@ -59,6 +61,8 @@ class AnvilAction {
 
         Configuration config = plugin.getConfig();
 
+        this.SHOW_WARNINGS = config.getBoolean("show-warnings");
+        this.SHOW_ERRORS = config.getBoolean("show-errors");
         this.MAX_COST = config.getInt("max-cost");
         this.ENCHANT_COST_MULTIPLIER = config.getDouble("enchant-cost-multiplier");
         this.RENAME_COST = config.getInt("rename-cost");
@@ -90,7 +94,7 @@ class AnvilAction {
             } catch (IllegalArgumentException e) {
                 // If enchantment has failed, the entire operation must be canceled to prevent the result item
                 // from being losing its enchantments in the process of being renamed or repaired
-                plugin.getLogger().warning(e.getMessage());
+                if (SHOW_WARNINGS) plugin.getLogger().warning(e.getMessage());
                 return null;
             }
 
@@ -112,9 +116,12 @@ class AnvilAction {
                 try {
                     damageAfterRepair = AnvilUtils.materialRepairDamage(leftItem, rightItem.getAmount());
                 } catch (IllegalArgumentException e) {
-                    plugin.getLogger().severe(e.getMessage());
-                    plugin.getLogger().severe("This is a bug in BetterAnvils. Please report it at " +
-                            "https://github.com/lthoerner/betteranvils.");
+                    if(SHOW_ERRORS) {
+                        plugin.getLogger().severe(e.getMessage());
+                        plugin.getLogger().severe("This is a bug in BetterAnvils. Please report it at " +
+                                "https://github.com/lthoerner/betteranvils.");
+                    }
+
                     return null;
                 }
             }
@@ -134,9 +141,12 @@ class AnvilAction {
                 try {
                     resultItem = applyEnchants(resultItem, combinedEnchants);
                 } catch (IllegalArgumentException e) {
-                    plugin.getLogger().severe(e.getMessage());
-                    plugin.getLogger().severe("This is a bug in BetterAnvils. Please report it at " +
-                            "https://github.com/lthoerner/betteranvils.");
+                    if (SHOW_ERRORS) {
+                        plugin.getLogger().severe(e.getMessage());
+                        plugin.getLogger().severe("This is a bug in BetterAnvils. Please report it at " +
+                                "https://github.com/lthoerner/betteranvils.");
+                    }
+
                     return null;
                 }
             }
